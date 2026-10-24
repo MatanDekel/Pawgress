@@ -520,6 +520,8 @@ function renderMain(){
 
 /* ---------- homework & lesson library ---------- */
 const HW_DAYS = 14;
+/* Video uploads need Firebase Storage (Blaze plan). Flip to true once Storage is set up. */
+const VIDEO_ENABLED = false;
 Object.assign(S, {folders:[], lessons:[], hw:{}, libFolder:null, libQ:"", editLesson:null, hwStart:null, uploads:{}, sheetRedraw:null});
 const shortDate = k => { const d = new Date(k+"T12:00"); return `${d.getDate()}/${d.getMonth()+1}`; };
 const lessonById = id => S.lessons.find(l => l.id === id);
@@ -662,9 +664,9 @@ function openItem(uid, k, id){
     let actions;
     if (!isT) actions = `<div class="row" style="margin-top:14px">
         <button class="btn ${it.done?"ghost":""}" data-act="itDone">${it.done ? "ביטול סימון ביצוע" : "✓ סימון כבוצע"}</button>
-        <label class="btn ghost" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">🎬 ${it.video ? "החלפת סרטון" : "העלאת סרטון"}
-          <input type="file" accept="video/*" id="vidIn" hidden ${up!=null?"disabled":""}></label></div>
-        <small class="muted">סרטון של עד דקה מהאימון</small>
+        ${VIDEO_ENABLED ? `<label class="btn ghost" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">🎬 ${it.video ? "החלפת סרטון" : "העלאת סרטון"}
+          <input type="file" accept="video/*" id="vidIn" hidden ${up!=null?"disabled":""}></label>` : ""}</div>
+        ${VIDEO_ENABLED ? `<small class="muted">סרטון של עד דקה מהאימון</small>` : ""}
         ${up!=null ? `<div style="margin-top:10px"><div class="progress"><i style="width:${up}%"></i></div><small class="muted">מעלה… ${up}%</small></div>` : ""}
         ${it.seen || it.note ? `<div class="notebox">${it.seen ? "<b>👁 המאלף/ת ראו</b>" : "<b>הערה מהמאלף/ת</b>"}${it.note ? `<p style="margin:6px 0 0">${esc(it.note)}</p>` : ""}</div>` : ""}`;
     else actions = `<div class="row" style="margin-top:12px">
@@ -677,7 +679,7 @@ function openItem(uid, k, id){
       <div class="row muted" style="margin:6px 0 12px;font-size:.9rem"><span>${esc(dayLabel(k))}</span>
         <span class="hwchip ${st.cls}" style="padding:2px 8px">${st.icon} ${st.txt}</span>${it.doneAt ? `<span>בוצע ${ago(it.doneAt)}</span>` : ""}</div>
       ${it.video ? `<video controls playsinline preload="metadata" src="${esc(it.video.url)}"></video>
-        <small class="muted">הועלה ${ago(it.video.at)}${it.video.dur ? ` · ${it.video.dur} שנ׳` : ""}</small>` : (isT ? `<p class="muted" style="margin:0">עוד לא הועלה סרטון</p>` : "")}
+        <small class="muted">הועלה ${ago(it.video.at)}${it.video.dur ? ` · ${it.video.dur} שנ׳` : ""}</small>` : (isT && VIDEO_ENABLED ? `<p class="muted" style="margin:0">עוד לא הועלה סרטון</p>` : "")}
       ${actions}
       <details ${openDetails?"open":""} style="margin-top:16px"><summary><b>דף השיעור</b></summary>
         ${L ? `<div class="chips" style="margin:8px 0">${tagChips(L.tags)}</div><div class="lessonbody">${md(L.body)}</div>` : `<p class="muted">דף המידע הזה כבר לא קיים בספרייה.</p>`}
@@ -871,7 +873,7 @@ if (!firebaseConfig?.apiKey || firebaseConfig.apiKey.startsWith("YOUR_")) {
   $app.innerHTML = `${topBar("")}<div class="panel empty"><span class="big">🔧</span>חסרים פרטי Firebase. מלאו אותם בקובץ firebase-config.js.</div>`;
 } else {
   const app = initializeApp(firebaseConfig);
-  auth = getAuth(app); fs = getFirestore(app); storage = getStorage(app); S.db = DB;
+  auth = getAuth(app); fs = getFirestore(app); if (VIDEO_ENABLED) storage = getStorage(app); S.db = DB;
   getRedirectResult(auth).catch(e => toast(AUTH_ERR[e.code] || "ההתחברות עם Google נכשלה. נסו שוב."));
   onAuthStateChanged(auth, u => {
     unsubAll(); $layer.innerHTML = "";

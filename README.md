@@ -15,7 +15,7 @@
 2. **Authentication** → Sign-in method → מפעילים **Email/Password** ו־**Google**.
 3. **Firestore Database** → יוצרים מסד נתונים, ובלשונית **Rules** מדביקים את התוכן של `firestore.rules` ומפרסמים.
 4. מעתיקים את פרטי ה־config לקובץ `firebase-config.js`.
-5. **Storage** → Get started, ובלשונית **Rules** מדביקים את התוכן של `storage.rules`. בפרויקטים חדשים Storage דורש תוכנית **Blaze** (יש מכסה חינמית).
+5. **Storage** → Get started, ובלשונית **Rules** מדביקים את התוכן של `storage.rules`. בפרויקטים חדשים Storage דורש תוכנית **Blaze** (יש מכסה חינמית). העלאת הסרטונים כבויה כרגע: כדי להפעיל אותה, משנים את `VIDEO_ENABLED` ל־`true` ב־`index.html`.
 6. ב־Authentication → Settings → **Authorized domains** מוסיפים את הדומיין של Vercel (למשל `pawgress.vercel.app`).
 7. ב־Vercel: Import Project מהריפו. Framework Preset: **Other**, בלי build command ובלי output directory.
 
