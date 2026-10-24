@@ -38,5 +38,16 @@ service cloud.firestore {
     match /homework/{uid}/days/{day} {
       allow read, write: if signedIn() && (request.auth.uid == uid || trainerOf(uid) == request.auth.uid);
     }
+
+    // Goals and scheduled sessions: the trainer writes; the client and trainer read.
+    match /plans/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || trainerOf(uid) == request.auth.uid);
+      allow write: if signedIn() && trainerOf(uid) == request.auth.uid;
+    }
+
+    // Payment tracking: trainer only.
+    match /billing/{uid} {
+      allow read, write: if signedIn() && trainerOf(uid) == request.auth.uid;
+    }
   }
 }

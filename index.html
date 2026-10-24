@@ -165,6 +165,24 @@ button{cursor:pointer}
 .progress{height:8px;border-radius:99px;background:var(--surface2);overflow:hidden}.progress i{display:block;height:100%;background:var(--brand);transition:width .2s}
 .notebox{background:var(--surface2);border-radius:12px;padding:12px;margin:12px 0 0}
 details summary{cursor:pointer;padding:6px 0}
+.tabs.sub button{padding:9px 4px;font-size:.88rem}
+.goals{list-style:none;margin:0;padding:0}
+.goals li{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.goals li:last-child{border-bottom:0}
+.goals .body{flex:1;min-width:0}.goals .body small{display:block}
+.goals li.done .gt{text-decoration:line-through;color:var(--muted)}
+.check{width:30px;height:30px;flex:none;border-radius:9px;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;color:#fff;font-weight:700;padding:0}
+.goals li.done .check{background:var(--walk);border-color:var(--walk)}
+.sessl{list-style:none;margin:0;padding:0}
+.sess{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.sess:last-child{border-bottom:0}
+.sess .when{width:96px;flex:none;display:flex;flex-direction:column;font-size:.92rem}
+.sess .when span{color:var(--muted)}
+.sess .body{flex:1;min-width:0}.sess .body small{display:block}
+.sess.past .when,.sess.past .body>b{opacity:.75}
+.paybtn{border:1px solid var(--bad);color:var(--bad);background:none;border-radius:999px;padding:6px 12px;font-size:.85rem}
+.paybtn.paid{border-color:var(--walk);background:var(--walk);color:#fff}
+.calopt{display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;width:100%;margin-top:10px}
 @media (max-width:520px){.quick{grid-template-columns:repeat(3,1fr)}.qbtn.big{grid-column:span 3}.stats{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(30px);opacity:0}}}
 </style>
@@ -302,10 +320,15 @@ const isInactive = id => !!S.meta[id]?.inactive;
 function syncClientSubs(){
   const want = new Set(S.clients.filter(c => !isInactive(c.id) || c.id===S.sel).map(c => c.id));
   for (const id in S.clientSubs) if (!want.has(id)) { S.clientSubs[id](); delete S.clientSubs[id]; }
-  for (const id of want) if (!S.clientSubs[id]) { const u1 = watchDays(id, 14), u2 = watchHw(id); S.clientSubs[id] = () => { u1(); u2(); }; }
+  for (const id of want) if (!S.clientSubs[id]) {
+    const us = [watchDays(id, 14), watchHw(id),
+      watchDoc(`plans/${id}`, d => { S.plans[id] = d || {}; }),
+      watchDoc(`billing/${id}`, d => { S.billing[id] = d || {}; })];
+    S.clientSubs[id] = () => us.forEach(u => u());
+  }
 }
 function wireRole(){
-  for (const k of ["days","trainers","clients","folders","lessons","hw","meta"]) { S.subs[k]?.(); delete S.subs[k]; }
+  for (const k of ["days","trainers","clients","folders","lessons","hw","meta","plan"]) { S.subs[k]?.(); delete S.subs[k]; }
   for (const k in S.clientSubs) S.clientSubs[k](); S.clientSubs = {};
   sub("trainers", () => S.db.collection("profiles").where("role","==","trainer").onSnapshot(s => {
     S.trainers = s.docs.map(d => ({id:d.id, ...d.data()})); render(); }, ()=>{}));
@@ -315,6 +338,7 @@ function wireRole(){
   if (S.profile?.role === "client") {
     sub("days", () => watchDays(S.me, 31));
     sub("hw", () => watchHw(S.me));
+    sub("plan", () => watchDoc(`plans/${S.me}`, d => { S.plans[S.me] = d || {}; }));
     if (S.profile.trainerId) sub("lessons", () => watchLessons(S.profile.trainerId));
   }
   if (S.profile?.role === "trainer") {
@@ -379,7 +403,7 @@ function onboarding(){
     <div class="field"><label for="trainerCode">קוד המאלף/ת</label>
       <input id="trainerCode" dir="ltr" autocomplete="off" autocapitalize="characters" maxlength="6" placeholder="למשל K7P2QX" style="text-transform:uppercase;letter-spacing:.2em;text-align:center" value="${esc(trainers.find(t=>t.id===p.trainerId)?.code||"")}">
       <small class="muted">${p.trainerId && trainers.find(t=>t.id===p.trainerId) ? `מקושר/ת כרגע אל ${esc(trainers.find(t=>t.id===p.trainerId).businessName)}. מחיקת הקוד מנתקת את הקישור.` : "את הקוד מקבלים מהמאלף/ת. אפשר גם להוסיף אותו מאוחר יותר בעריכת הפרופיל."}</small></div>
-    <div class="field"><label for="goals">מטרות האילוף</label><textarea id="goals" rows="2" placeholder="למשל: גמילה מצרכים בבית, הליכה ברצועה">${esc(p.goals)}</textarea></div>`;
+    `;
   if (f.role === "trainer") fields = `
     <div class="field"><label for="businessName">שם העסק או השם שלך</label><input id="businessName" required value="${esc(p.businessName)}"></div>
     <div class="field"><label for="phone">טלפון</label><input id="phone" type="tel" value="${esc(p.phone)}"></div>`;
@@ -449,20 +473,29 @@ function clientHome(){
   const p = S.profile, trainer = S.trainers.find(t=>t.id===p.trainerId);
   const k = S.selDay, list = dayEntries(S.me, k);
   const lastPee = entriesOf(S.me).find(e=>e.type==="pee");
+  const next = p.trainerId ? nextSession(S.me) : null;
   const quick = ["poop","walk","food","train","weight","note"].map(t =>
     `<button class="qbtn" style="--c:${TYPES[t].c}" data-act="log" data-type="${t}"><span>${TYPES[t].icon}</span><span>${TYPES[t].label}</span></button>`).join("");
+  const tabs = [["today","היום"],["hw","שיעורי בית"],["sessions","שיעורים"],["goals","מטרות"]];
+  const tab = p.trainerId ? S.mtab : "today";
+  let body = "";
+  if (tab==="today") body = `<div class="panel"><div class="spread" style="margin-bottom:12px"><h3>רישום מהיר</h3>
+      <span class="muted">${lastPee ? `פיפי אחרון ${ago(lastPee.t)}` : ""}</span></div>
+      <div class="quick"><button class="qbtn big" data-act="log" data-type="pee"><span>💧</span><span>עשה פיפי</span></button>${quick}</div></div>
+    <div class="panel"><div class="spread">${dayNav()}</div>${strip(list,k)}${statsBlock(list)}</div>
+    <div class="panel"><h3 style="margin-bottom:10px">7 ימים אחרונים, לפי שעה</h3>${heatmap(S.me,7)}</div>
+    <div class="panel"><h3 style="margin-bottom:6px">כל הרשומות של ${esc(dayLabel(k))}</h3>${timeline(list,true)}</div>`;
+  if (tab==="hw") body = `<div class="panel">${hwCalendar(S.me,false)}</div>`;
+  if (tab==="sessions") body = `<div class="panel">${sessionsView(S.me,false)}</div>`;
+  if (tab==="goals") body = `<div class="panel">${goalsView(S.me,false)}</div>`;
   return `${topBar(`<button class="btn ghost small" data-act="edit">עריכת פרופיל</button>`)}
   <div class="panel"><div class="dog"><div class="badge">🐕</div><div>
     <h2>${esc(p.dogName)}</h2>
     <div class="facts">${p.breed?`<span>${esc(p.breed)}</span>`:""}${p.age?`<span>${esc(p.age)}</span>`:""}${p.weight?`<span>${esc(p.weight)} ק״ג</span>`:""}
-    <span>${trainer ? `מאלף/ת: ${esc(trainer.businessName)}` : "אין מאלף/ת מקושר"}</span></div></div></div></div>
-  ${p.trainerId ? `<div class="panel">${hwCalendar(S.me,false)}</div>` : ""}
-  <div class="panel"><div class="spread" style="margin-bottom:12px"><h3>רישום מהיר</h3>
-    <span class="muted">${lastPee ? `פיפי אחרון ${ago(lastPee.t)}` : ""}</span></div>
-    <div class="quick"><button class="qbtn big" data-act="log" data-type="pee"><span>💧</span><span>עשה פיפי</span></button>${quick}</div></div>
-  <div class="panel"><div class="spread">${dayNav()}</div>${strip(list,k)}${statsBlock(list)}</div>
-  <div class="panel"><h3 style="margin-bottom:10px">7 ימים אחרונים, לפי שעה</h3>${heatmap(S.me,7)}</div>
-  <div class="panel"><h3 style="margin-bottom:6px">כל הרשומות של ${esc(dayLabel(k))}</h3>${timeline(list,true)}</div>`;
+    <span>${trainer ? `מאלף/ת: ${esc(trainer.businessName)}` : "אין מאלף/ת מקושר"}</span></div>
+    ${next ? `<div style="margin-top:6px;font-size:.92rem">📅 השיעור הבא: <b>${esc(whenLabel(next.start))}</b></div>` : ""}</div></div></div>
+  ${p.trainerId ? `<div class="tabs sub">${tabs.map(([key,l]) => `<button data-act="mtab" data-v="${key}" aria-pressed="${tab===key}">${l}</button>`).join("")}</div>` : ""}
+  ${body}`;
 }
 
 function trainerHome(){
@@ -481,7 +514,9 @@ function trainerHome(){
       <span class="badge">🐕${fresh?`<span class="live" title="פעילות בחצי השעה האחרונה"></span>`:""}</span>
       <span class="main"><b>${esc(c.dogName||"כלב")}</b>${owner?` <span class="muted">· ${esc(owner)}</span>`:""}
         <span class="last ${stale?"warn":""}" style="display:block">${lastPee ? `פיפי אחרון ${ago(lastPee.t)}` : "עוד לא נרשם פיפי"}</span>
-        <span class="chips">${newV?`<span class="chip new">🎬 ${newV} ${newV===1?"סרטון חדש":"סרטונים חדשים"}</span>`:""}${hwT.length?`<span class="chip">📚 ${hwT.filter(i=>i.done).length}/${hwT.length} שיעורים היום</span>`:""}<span class="chip">💧 ${today.pee} היום</span><span class="chip">🦮 ${today.walkMin} דק׳</span>
+        <span class="chips">${newV?`<span class="chip new">🎬 ${newV} ${newV===1?"סרטון חדש":"סרטונים חדשים"}</span>`:""}${hwT.length?`<span class="chip">📚 ${hwT.filter(i=>i.done).length}/${hwT.length} שיעורי בית היום</span>`:""}${(() => { const n = nextSession(c.id), b = billOf(c.id);
+          const owe = b.mode==="per" ? sessionsSplit(c.id).past.filter(x => !b.paid?.[x.id]).length : 0;
+          return (n ? `<span class="chip">📅 ${esc(whenLabel(n.start))}</span>` : "") + (owe ? `<span class="chip bad">💳 ${owe} לא שולמו</span>` : ""); })()}<span class="chip">💧 ${today.pee} היום</span><span class="chip">🦮 ${today.walkMin} דק׳</span>
         ${today.acc?`<span class="chip bad">${today.acc} תאונות</span>`:""}${last?`<span class="chip">${esc(TYPES[last.type]?.label)} ${hm(last.t)}</span>`:""}</span></span>
     </button>`; }).join("");
   return `${topBar(`<button class="btn ghost small" data-act="edit">עריכת פרופיל</button>`)}${trainerTabs()}
@@ -503,25 +538,33 @@ function trainerHome(){
 function clientDetail(){
   const c = S.clients.find(x=>x.id===S.sel); if (!c) { S.view="home"; return trainerHome(); }
   const k = S.selDay, list = dayEntries(c.id,k), owner = S.names[c.id];
-  const week = []; for (let i=0;i<7;i++) week.push(...dayEntries(c.id, shiftDay(dayKey(Date.now()),-i)));
-  const ws = summary(week);
-  const off = isInactive(c.id);
+  const off = isInactive(c.id), next = nextSession(c.id);
+  const tabs = [["log","יומן"],["hw","שיעורי בית"],["goals","מטרות"],["sessions","שיעורים ותשלום"]];
+  let body = "";
+  if (S.ctab==="log") {
+    const week = []; for (let i=0;i<7;i++) week.push(...dayEntries(c.id, shiftDay(dayKey(Date.now()),-i)));
+    const ws = summary(week);
+    body = `<div class="panel"><h3 style="margin-bottom:8px">שבוע אחרון</h3>
+      <div class="stats"><div class="stat"><b>${(ws.pee/7).toFixed(1)}</b><small>פיפי ביום בממוצע</small></div>
+      <div class="stat ${ws.acc?"bad":""}"><b>${ws.acc}</b><small>תאונות</small></div>
+      <div class="stat"><b>${ws.pee?Math.round((ws.pee-week.filter(e=>e.type==="pee"&&e.place==="home").length)/ws.pee*100):0}%</b><small>פיפי במקום הנכון</small></div>
+      <div class="stat"><b>${Math.round(ws.walkMin/7)}</b><small>דק׳ טיול ביום</small></div></div>
+      <div style="margin-top:16px">${heatmap(c.id,7)}</div></div>
+    <div class="panel"><div class="spread">${dayNav()}</div>${strip(list,k)}${statsBlock(list)}</div>
+    <div class="panel"><h3 style="margin-bottom:6px">רשומות</h3>${timeline(list,false)}</div>`;
+  }
+  if (S.ctab==="hw") body = `<div class="panel">${hwCalendar(c.id,true)}</div>`;
+  if (S.ctab==="goals") body = `<div class="panel">${goalsView(c.id,true)}</div>`;
+  if (S.ctab==="sessions") body = `<div class="panel">${billingView(c.id)}</div><div class="panel">${sessionsView(c.id,true)}</div>`;
   return `${topBar(`<button class="btn ghost small" data-act="back">כל הלקוחות</button>`)}
   ${off ? `<div class="panel" style="border-color:var(--warn)"><div class="spread"><span>הלקוח מסומן כלא פעיל מאז ${esc(shortDate(dayKey(S.meta[c.id].since||Date.now())))}.</span>
     <button class="btn small" data-act="setActive" data-id="${esc(c.id)}">החזרה לפעילים</button></div></div>` : ""}
   <div class="panel"><div class="dog"><div class="badge">🐕</div><div style="flex:1"><div class="spread"><h2>${esc(c.dogName)}</h2>
     ${off ? "" : `<button class="btn ghost small" data-act="setInactive" data-id="${esc(c.id)}">סימון כלא פעיל</button>`}</div>
-    <div class="facts">${owner?`<span>${esc(owner)}</span>`:""}${c.breed?`<span>${esc(c.breed)}</span>`:""}${c.age?`<span>${esc(c.age)}</span>`:""}${c.weight?`<span>${esc(c.weight)} ק״ג</span>`:""}</div></div></div>
-    ${c.goals?`<p style="margin:12px 0 0"><span class="muted">מטרות: </span>${esc(c.goals)}</p>`:""}</div>
-  <div class="panel">${hwCalendar(c.id,true)}</div>
-  <div class="panel"><h3 style="margin-bottom:8px">שבוע אחרון</h3>
-    <div class="stats"><div class="stat"><b>${(ws.pee/7).toFixed(1)}</b><small>פיפי ביום בממוצע</small></div>
-    <div class="stat ${ws.acc?"bad":""}"><b>${ws.acc}</b><small>תאונות</small></div>
-    <div class="stat"><b>${ws.pee?Math.round((ws.pee-week.filter(e=>e.type==="pee"&&e.place==="home").length)/ws.pee*100):0}%</b><small>פיפי במקום הנכון</small></div>
-    <div class="stat"><b>${Math.round(ws.walkMin/7)}</b><small>דק׳ טיול ביום</small></div></div>
-    <div style="margin-top:16px">${heatmap(c.id,7)}</div></div>
-  <div class="panel"><div class="spread">${dayNav()}</div>${strip(list,k)}${statsBlock(list)}</div>
-  <div class="panel"><h3 style="margin-bottom:6px">רשומות</h3>${timeline(list,false)}</div>`;
+    <div class="facts">${owner?`<span>${esc(owner)}</span>`:""}${c.breed?`<span>${esc(c.breed)}</span>`:""}${c.age?`<span>${esc(c.age)}</span>`:""}${c.weight?`<span>${esc(c.weight)} ק״ג</span>`:""}</div>
+    ${next ? `<div style="margin-top:6px;font-size:.92rem">📅 השיעור הבא: <b>${esc(whenLabel(next.start))}</b></div>` : ""}</div></div></div>
+  <div class="tabs sub">${tabs.map(([key,l]) => `<button data-act="ctab" data-v="${key}" aria-pressed="${S.ctab===key}">${l}</button>`).join("")}</div>
+  ${body}`;
 }
 
 function render(){ renderMain(); if (S.sheetRedraw && $layer.innerHTML) S.sheetRedraw(); }
@@ -541,6 +584,9 @@ function renderMain(){
     }
     return;
   }
+  const ae = document.activeElement;
+  if (ae && $app.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && ae.id!=="libSearch" && S.view!=="lesson") { S.pendingRender = true; return; }
+  S.pendingRender = false;
   if (S.profile.role==="client") $app.innerHTML = clientHome();
   else if (S.view==="lesson") { const f = $app.querySelector("#lessonForm"); if (!f || f.dataset.id !== S.editLesson) $app.innerHTML = lessonEditor(); }
   else if (S.view==="library") {
@@ -772,6 +818,138 @@ function lessonEditor(){
     <div class="row"><button class="btn" type="submit">שמירה</button>${isNew ? "" : `<button type="button" class="btn ghost" data-act="lessonDel" style="color:var(--bad)">מחיקת הדף</button>`}</div></form>`;
 }
 
+/* ---------- goals, sessions & billing ---------- */
+Object.assign(S, {plans:{}, billing:{}, ctab:"log", mtab:"today", showPast:false, pendingRender:false});
+const planOf = uid => ({goals:[], sessions:[], ...(S.plans[uid]||{})});
+const billOf = uid => ({mode:"", amount:null, count:null, price:null, paid:{}, ...(S.billing[uid]||{})});
+const cnt = (n, one, many) => n===1 ? one : `${n} ${many}`;
+const nis = n => `${Number(n||0).toLocaleString("he-IL")} ₪`;
+function watchDoc(path, cb){ return S.db.doc(path).onSnapshot(s => { cb(s.exists ? s.data() : null); render(); }, ()=>{}); }
+let pq = Promise.resolve();
+function writeDocQ(path, mutate){
+  pq = pq.then(async () => {
+    const r = S.db.doc(path), snap = await r.get();
+    const cur = snap.exists ? JSON.parse(JSON.stringify(snap.data())) : {};
+    const next = mutate(cur); next.updatedAt = Date.now();
+    await r.set(next);
+  }).catch(saveErr);
+  return pq;
+}
+const writePlan = (uid, fn) => writeDocQ(`plans/${uid}`, cur => { const p = {goals:cur.goals||[], sessions:cur.sessions||[]}; fn(p); return p; });
+const writeBill = (uid, fn) => writeDocQ(`billing/${uid}`, cur => { const b = {mode:"", amount:null, count:null, price:null, paid:{}, ...cur}; delete b.updatedAt; fn(b); return b; });
+const sessEnd = x => x.start + (x.dur||60)*6e4;
+function sessionsSplit(uid){
+  const now = Date.now(), ss = planOf(uid).sessions.slice().sort((a,b)=>a.start-b.start);
+  return {up: ss.filter(x => sessEnd(x) > now), past: ss.filter(x => sessEnd(x) <= now).reverse()};
+}
+const nextSession = uid => sessionsSplit(uid).up[0];
+const whenLabel = t => `${dayLabel(dayKey(t))} · ${hm(t)}`;
+
+function goalsView(uid, isT){
+  const g = planOf(uid).goals.slice().sort((a,b) => (!!a.done - !!b.done) || ((a.createdAt||0)-(b.createdAt||0)));
+  const done = g.filter(x => x.done).length;
+  const legacy = isT ? S.clients.find(c => c.id===uid)?.goals : "";
+  return `<div class="spread" style="margin-bottom:8px"><h3>מטרות האילוף</h3>${g.length ? `<span class="muted">${done} מתוך ${g.length} הושגו</span>` : ""}</div>
+    ${g.length ? `<div class="progress" style="margin-bottom:10px"><i style="width:${Math.round(done/g.length*100)}%"></i></div>` : ""}
+    ${isT ? `<form id="goalForm" class="row" style="margin:10px 0 6px;flex-wrap:nowrap"><input id="goalText" class="search" placeholder="מטרה חדשה, למשל: הליכה ברצועה בלי משיכה" required><button class="btn" type="submit">הוספה</button></form>` : ""}
+    ${g.length ? `<ul class="goals">${g.map(x => `<li class="${x.done ? "done" : ""}">
+      ${isT ? `<button class="check" data-act="goalToggle" data-id="${esc(x.id)}" aria-pressed="${!!x.done}" aria-label="${x.done ? "סימון כלא הושגה" : "סימון כהושגה"}">${x.done ? "✓" : ""}</button>`
+            : `<span class="check" aria-hidden="true">${x.done ? "✓" : ""}</span>`}
+      <div class="body"><span class="gt">${esc(x.text)}</span>${x.done && x.doneAt ? `<small class="muted">הושגה ב־${shortDate(dayKey(x.doneAt))}</small>` : ""}</div>
+      ${isT ? `<button class="x" data-act="goalEdit" data-id="${esc(x.id)}" aria-label="עריכת המטרה">✎</button><button class="x" data-act="goalDel" data-id="${esc(x.id)}" aria-label="מחיקת המטרה">✕</button>` : ""}
+    </li>`).join("")}</ul>`
+    : `<div class="empty" style="padding:18px">${isT ? "עוד אין מטרות. הוסיפו את המטרה הראשונה למעלה." : "המאלף/ת עוד לא הגדירו מטרות."}</div>`}
+    ${legacy ? `<div class="notebox"><small class="muted">מה שהלקוח כתב בהרשמה:</small><p style="margin:4px 0 0">${esc(legacy)}</p></div>` : ""}`;
+}
+
+function sessionsView(uid, isT){
+  const {up, past} = sessionsSplit(uid), b = billOf(uid);
+  const row = (x, isPast) => { const paid = !!b.paid?.[x.id];
+    return `<li class="sess ${isPast ? "past" : ""}"><div class="when"><b>${esc(dayLabel(dayKey(x.start)))}</b><span>${hm(x.start)}${x.dur ? ` · ${x.dur} דק׳` : ""}</span></div>
+      <div class="body"><b>${esc(x.title || "שיעור אילוף")}</b>${x.location ? `<small class="muted">📍 ${esc(x.location)}</small>` : ""}${x.notes ? `<small class="muted">${esc(x.notes)}</small>` : ""}
+      <div class="row" style="margin-top:6px;gap:6px">
+        ${!isPast ? `<button class="btn ghost small" data-act="sessCal" data-uid="${esc(uid)}" data-id="${esc(x.id)}">📅 הוספה ליומן</button>` : ""}
+        ${isT ? `<button class="btn ghost small" data-act="sessEdit" data-id="${esc(x.id)}">עריכה</button>` : ""}
+        ${isT && b.mode==="per" ? `<button class="paybtn ${paid ? "paid" : ""}" data-act="sessPaid" data-id="${esc(x.id)}" aria-pressed="${paid}">${paid ? "✓ שולם" : "לא שולם"}</button>` : ""}
+      </div></div></li>`; };
+  return `<div class="spread" style="margin-bottom:8px"><h3>${isT ? "שיעורים" : "השיעורים שלנו"}</h3>${isT ? `<button class="btn small" data-act="sessNew">＋ שיעור חדש</button>` : ""}</div>
+    ${up.length ? `<ul class="sessl">${up.map(x => row(x,false)).join("")}</ul>` : `<div class="empty" style="padding:16px">אין כרגע שיעורים מתוכננים.</div>`}
+    ${past.length ? `<button class="x" data-act="pastToggle" aria-expanded="${S.showPast}" style="margin-top:8px;color:var(--ink)"><b>שיעורים שהיו (${past.length})</b> <span class="muted">${S.showPast ? "הסתרה" : "הצגה"}</span></button>
+      ${S.showPast ? `<ul class="sessl">${past.map(x => row(x,true)).join("")}</ul>` : ""}` : ""}`;
+}
+
+function billingView(uid){
+  const b = billOf(uid), {up, past} = sessionsSplit(uid), all = [...past, ...up];
+  let sum = "";
+  if (b.mode==="prepaid") {
+    const used = past.length;
+    sum = `שולם: <b>${b.amount ? nis(b.amount) : "לא הוזן סכום"}</b>` + (b.count
+      ? ` · התקיימו ${used} מתוך ${b.count} שיעורים בחבילה${b.count-used > 0 ? ` · נותרו ${b.count-used}` : ` · <span style="color:var(--bad)">החבילה נוצלה</span>`}`
+      : ` · ${used===1 ? "התקיים שיעור אחד" : `התקיימו ${used} שיעורים`}`);
+  }
+  if (b.mode==="per") {
+    const paidN = all.filter(x => b.paid?.[x.id]).length, owe = past.filter(x => !b.paid?.[x.id]).length;
+    sum = `${cnt(paidN,"שיעור אחד שולם","שיעורים שולמו")}${b.price ? ` (${nis(paidN*b.price)})` : ""}` +
+      (owe ? ` · <span style="color:var(--bad)">${cnt(owe,"שיעור אחד התקיים ולא שולם","שיעורים שהתקיימו ולא שולמו")}${b.price ? ` (${nis(owe*b.price)})` : ""}</span>` : " · אין חובות");
+  }
+  return `<form id="billForm"><div class="spread" style="margin-bottom:10px"><h3>תשלום</h3><small class="muted">רק את/ה רואה את החלק הזה</small></div>
+    <div class="seg" style="margin-bottom:12px"><button type="button" data-act="billMode" data-v="prepaid" aria-pressed="${b.mode==="prepaid"}">שולם מראש</button>
+      <button type="button" data-act="billMode" data-v="per" aria-pressed="${b.mode==="per"}">תשלום לכל שיעור</button></div>
+    ${b.mode==="prepaid" ? `<div class="grid2"><div class="field"><label for="bAmount">סכום ששולם (₪)</label><input id="bAmount" type="number" min="0" inputmode="decimal" value="${esc(b.amount ?? "")}"></div>
+      <div class="field"><label for="bCount">מספר שיעורים בחבילה</label><input id="bCount" type="number" min="0" inputmode="numeric" value="${esc(b.count ?? "")}"></div></div>
+      <button class="btn small" type="submit">שמירה</button>` : ""}
+    ${b.mode==="per" ? `<div class="field"><label for="bPrice">מחיר לשיעור (₪)</label><input id="bPrice" type="number" min="0" inputmode="decimal" value="${esc(b.price ?? "")}"></div>
+      <button class="btn small" type="submit">שמירה</button><p class="muted" style="margin:10px 0 0;font-size:.9rem">ליד כל שיעור ברשימה למטה מסמנים אם שולם.</p>` : ""}
+    ${!b.mode ? `<p class="muted" style="margin:0">בחרו איך הלקוח משלם.</p>` : ""}
+    ${sum ? `<div class="notebox">${sum}</div>` : ""}</form>`;
+}
+
+function openSessionSheet(uid, sid){
+  const x = sid ? planOf(uid).sessions.find(y => y.id===sid) : null;
+  const start = x ? x.start : (() => { const d = new Date(); d.setDate(d.getDate()+1); d.setHours(10,0,0,0); return d.getTime(); })();
+  const n = planOf(uid).sessions.length + 1;
+  $layer.innerHTML = `<div class="scrim"><form class="sheet" id="sessForm"><div class="spread" style="margin-bottom:12px"><h2>${x ? "עריכת שיעור" : "שיעור חדש"}</h2>
+    <button type="button" class="x" data-act="close" aria-label="סגירה">✕</button></div>
+    <div class="field"><label for="sTitle">שם השיעור</label><input id="sTitle" required value="${esc(x?.title || `שיעור ${n}`)}"></div>
+    <div class="grid2"><div class="field"><label for="sDate">תאריך</label><input id="sDate" type="date" required value="${dayKey(start)}"></div>
+      <div class="field"><label for="sTime">שעה</label><input id="sTime" type="time" required value="${hm(start)}"></div>
+      <div class="field"><label for="sDur">משך (דקות)</label><input id="sDur" type="number" min="5" step="5" inputmode="numeric" value="${esc(x?.dur || 60)}"></div>
+      <div class="field"><label for="sLoc">מיקום</label><input id="sLoc" placeholder="למשל: אצל הלקוח בבית" value="${esc(x?.location || "")}"></div></div>
+    <div class="field"><label for="sNotes">הערות</label><textarea id="sNotes" rows="2">${esc(x?.notes || "")}</textarea></div>
+    <div class="row"><button class="btn" type="submit">שמירה</button>${x ? `<button type="button" class="btn ghost" data-act="sessDel" style="color:var(--bad)">מחיקה</button>` : ""}</div></form></div>`;
+  $layer.onclick = ev => {
+    if (isClose(ev.target)) return closeSheet();
+    if (ev.target.closest("[data-act=sessDel]") && confirm("למחוק את השיעור?")) {
+      writePlan(uid, p => { p.sessions = p.sessions.filter(y => y.id!==sid); }); closeSheet(); toast("השיעור נמחק"); }
+  };
+  $layer.querySelector("#sessForm").onsubmit = ev => {
+    ev.preventDefault(); const f = ev.target, v = id => f.querySelector("#"+id).value.trim();
+    const t = new Date(`${v("sDate")}T${v("sTime")}`).getTime(); if (!t) return;
+    const data = {id: sid || newId(), title: v("sTitle") || "שיעור אילוף", start: t, dur: +v("sDur") || 60, location: v("sLoc"), notes: v("sNotes")};
+    writePlan(uid, p => { const i = p.sessions.findIndex(y => y.id===data.id); if (i >= 0) p.sessions[i] = {...p.sessions[i], ...data}; else p.sessions.push(data); });
+    closeSheet(); toast(sid ? "השיעור עודכן" : "השיעור נוסף");
+  };
+}
+
+function openCalSheet(uid, sid){
+  const x = planOf(uid).sessions.find(y => y.id===sid); if (!x) return;
+  const isT = S.profile.role==="trainer";
+  const dog = isT ? (S.clients.find(c => c.id===uid)?.dogName || "") : S.profile.dogName;
+  const trainer = isT ? "" : (S.trainers.find(t => t.id===S.profile.trainerId)?.businessName || "");
+  const title = `🐾 ${x.title || "שיעור אילוף"}${dog ? ` – ${dog}` : ""}`;
+  const desc = [isT ? (S.names[uid] ? `לקוח: ${S.names[uid]}` : "") : (trainer ? `עם ${trainer}` : ""), x.notes].filter(Boolean).join("\n");
+  const end = sessEnd(x), u = t => new Date(t).toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");
+  const g = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${u(x.start)}/${u(end)}&details=${encodeURIComponent(desc)}&location=${encodeURIComponent(x.location||"")}`;
+  const ics = `/api/ics?${new URLSearchParams({id:x.id, t:title, s:String(x.start), e:String(end), l:x.location||"", d:desc})}`;
+  $layer.innerHTML = `<div class="scrim"><div class="sheet" role="dialog" aria-label="הוספה ליומן">
+    <div class="spread"><h2>📅 הוספה ליומן</h2><button type="button" class="x" data-act="close" aria-label="סגירה">✕</button></div>
+    <p class="muted" style="margin:6px 0 4px">${esc(x.title || "שיעור אילוף")} · ${esc(whenLabel(x.start))}</p>
+    <a class="btn calopt" href="${esc(ics)}">יומן הטלפון (iPhone, Outlook, Samsung)</a>
+    <a class="btn ghost calopt" href="${esc(g)}" target="_blank" rel="noopener">Google Calendar</a>
+    <small class="muted" style="display:block;margin-top:10px">ביומן תתווסף גם תזכורת שעה לפני השיעור.</small></div></div>`;
+  $layer.onclick = ev => { if (isClose(ev.target)) closeSheet(); else if (ev.target.closest("a.calopt")) setTimeout(closeSheet, 300); };
+}
+
 /* ---------- log sheet ---------- */
 function openSheet(type){
   const T = TYPES[type]; const st = {place: (type==="pee"||type==="poop") ? "out" : null, peeOnWalk:true, poopOnWalk:false};
@@ -826,7 +1004,19 @@ $app.addEventListener("click", ev => {
   if (a==="edit"){ S.view="edit"; S.form={role:S.profile.role}; render(); }
   if (a==="cancelEdit"){ S.view="home"; render(); }
   if (a==="log") openSheet(b.dataset.type);
-  if (a==="open"){ S.view="client"; S.hwStart=null; S.sel=b.dataset.id; S.selDay=dayKey(Date.now()); syncClientSubs(); render(); scrollTo(0,0); }
+  if (a==="open"){ S.view="client"; S.ctab="log"; S.showPast=false; S.hwStart=null; S.sel=b.dataset.id; S.selDay=dayKey(Date.now()); syncClientSubs(); render(); scrollTo(0,0); }
+  if (a==="ctab"){ S.ctab=b.dataset.v; S.showPast=false; render(); }
+  if (a==="mtab"){ S.mtab=b.dataset.v; S.showPast=false; render(); }
+  if (a==="pastToggle"){ S.showPast=!S.showPast; render(); }
+  if (a==="goalToggle"){ const id=b.dataset.id; writePlan(S.sel, p => { const g=p.goals.find(x=>x.id===id); if (g) { g.done=!g.done; g.doneAt=g.done?Date.now():null; } }); }
+  if (a==="goalDel" && confirm("למחוק את המטרה?")){ const id=b.dataset.id; writePlan(S.sel, p => { p.goals=p.goals.filter(x=>x.id!==id); }); }
+  if (a==="goalEdit"){ const id=b.dataset.id, uid=S.sel, g=planOf(uid).goals.find(x=>x.id===id);
+    if (g) promptSheet("עריכת מטרה", g.text, text => writePlan(uid, p => { const x=p.goals.find(y=>y.id===id); if (x) x.text=text; })); }
+  if (a==="sessNew") openSessionSheet(S.sel, null);
+  if (a==="sessEdit") openSessionSheet(S.sel, b.dataset.id);
+  if (a==="sessCal") openCalSheet(b.dataset.uid, b.dataset.id);
+  if (a==="sessPaid"){ const id=b.dataset.id; writeBill(S.sel, x => { x.paid = x.paid || {}; if (x.paid[id]) delete x.paid[id]; else x.paid[id] = true; }); }
+  if (a==="billMode"){ const v=b.dataset.v; writeBill(S.sel, x => { x.mode = v; }); }
   if (a==="toggleInactive"){ S.showInactive = !S.showInactive; render(); }
   if (a==="setInactive" && confirm("לסמן את הלקוח כלא פעיל? הוא יעבור לרשימת הלא פעילים, וכל הנתונים שלו יישמרו.")) {
     S.db.doc(`trainers/${S.me}/clientMeta/${b.dataset.id}`).set({inactive:true, since:Date.now()})
@@ -864,10 +1054,25 @@ $app.addEventListener("click", ev => {
   if (a==="hwNav"){ S.hwStart = shiftDay(S.hwStart || dayKey(Date.now()), +b.dataset.n); render(); }
   if (a==="del" && confirm("למחוק את הרשומה?")) { const id=b.dataset.id; writeDay(S.me, b.dataset.day, cur => cur.filter(e=>e.id!==id)); }
 });
+$app.addEventListener("focusout", () => setTimeout(() => {
+  const ae = document.activeElement;
+  if (S.pendingRender && !(ae && $app.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) render();
+}, 400));
 $app.addEventListener("input", ev => {
   if (ev.target.id==="libSearch"){ S.libQ = ev.target.value; const r = $app.querySelector("#libResults"); if (r) r.innerHTML = libResults(); }
 });
 $app.addEventListener("submit", async ev => {
+  if (ev.target.id==="goalForm"){ ev.preventDefault();
+    const inp = ev.target.querySelector("#goalText"), text = inp.value.trim(); if (!text) return;
+    inp.value = ""; inp.blur();
+    writePlan(S.sel, p => { p.goals.push({id:newId(), text, done:false, createdAt:Date.now()}); }).then(() => toast("המטרה נוספה"));
+    return; }
+  if (ev.target.id==="billForm"){ ev.preventDefault();
+    const num = id => { const v = ev.target.querySelector("#"+id)?.value; return v==="" || v==null ? null : +v; };
+    const vals = {amount:num("bAmount"), count:num("bCount"), price:num("bPrice")};
+    document.activeElement?.blur?.();
+    writeBill(S.sel, x => { for (const key in vals) if (ev.target.querySelector({amount:"#bAmount",count:"#bCount",price:"#bPrice"}[key])) x[key] = vals[key]; }).then(() => toast("פרטי התשלום נשמרו"));
+    return; }
   if (ev.target.id==="lessonForm"){ ev.preventDefault();
     const f = ev.target, title = f.querySelector("#lTitle").value.trim(); if (!title) return;
     const id = S.editLesson==="new" ? newId() : S.editLesson, old = lessonById(id);
@@ -894,7 +1099,7 @@ $app.addEventListener("submit", async ev => {
       if (!t){ toast("לא נמצא מאלף/ת עם הקוד הזה. בדקו את הקוד ונסו שוב."); return; }
       trainerId = t.id;
     }
-    data = {role, ownerName:v("ownerName"), dogName:v("dogName"), breed:v("breed"), age:v("age"), weight:v("weight") ? +v("weight") : null, trainerId, goals:v("goals")}; }
+    data = {role, ownerName:v("ownerName"), dogName:v("dogName"), breed:v("breed"), age:v("age"), weight:v("weight") ? +v("weight") : null, trainerId, goals:S.profile?.goals || ""}; }
   else { if (!v("businessName")) return;
     let code = S.profile?.role==="trainer" ? S.profile.code : "";
     if (!code) { try { code = await uniqueCode(); } catch { toast("לא הצלחנו ליצור קוד. נסו שוב."); return; } }
@@ -916,7 +1121,7 @@ if (!firebaseConfig?.apiKey || firebaseConfig.apiKey.startsWith("YOUR_")) {
   onAuthStateChanged(auth, u => {
     unsubAll(); $layer.innerHTML = "";
     S.me = u ? u.uid : null; S.profile = u ? undefined : undefined;
-    S.view = "home"; S.sel = null; S.form = {}; S.clients = []; S.days = {}; S.hw = {}; S.meta = {}; S.showInactive = false; S.lessons = []; S.folders = []; S.sheetRedraw = null; S._authDrawn = null;
+    S.view = "home"; S.sel = null; S.form = {}; S.clients = []; S.days = {}; S.hw = {}; S.meta = {}; S.showInactive = false; S.plans = {}; S.billing = {}; S.ctab = "log"; S.mtab = "today"; S.showPast = false; S.lessons = []; S.folders = []; S.sheetRedraw = null; S._authDrawn = null;
     render();
     if (u) startRole();
   });
