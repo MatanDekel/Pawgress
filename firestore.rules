@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+
+    // Profiles: any signed-in user can read (trainer looks up clients, client sees trainer name);
+    // only the owner writes their own profile.
+    match /profiles/{uid} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Trainer codes: create-once, never changed or reused.
+    match /codes/{code} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.owner == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Daily logs: the dog owner writes; the owner and their linked trainer read.
+    match /logs/{uid}/days/{day} {
+      allow write: if signedIn() && request.auth.uid == uid;
+      allow read: if signedIn() && (
+        request.auth.uid == uid ||
+        get(/databases/$(database)/documents/profiles/$(uid)).data.trainerId == request.auth.uid
+      );
+    }
+  }
+}

@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pawgress · יומן אילוף</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐕</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=Secular+One&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF3EC;--surface:#FFFFFF;--surface2:#F6F9F5;--ink:#16241C;--muted:#5B6B61;--line:#D5DED6;
+  --brand:#1F5C43;--brand-ink:#FFFFFF;--pee:#E8B220;--poop:#8A5A3B;--walk:#2E8B57;--food:#C9622B;
+  --train:#3B6FD8;--weight:#7A5BC7;--note:#6B7A72;--bad:#D64545;--warn:#C98A00;
+  color-scheme:light;box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F1813;--surface:#17231C;--surface2:#1C2A22;--ink:#E6EFE8;--muted:#9AAEA2;--line:#2A3A30;
+  --brand:#6FCF9F;--brand-ink:#0F1813;--pee:#F2C94C;--poop:#C08B66;--walk:#5CC98A;--food:#F08A52;
+  --train:#7FA4F5;--weight:#A98BF0;--note:#9AAEA2;--bad:#F07070;--warn:#F2B84C;color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0F1813;--surface:#17231C;--surface2:#1C2A22;--ink:#E6EFE8;--muted:#9AAEA2;--line:#2A3A30;
+  --brand:#6FCF9F;--brand-ink:#0F1813;--pee:#F2C94C;--poop:#C08B66;--walk:#5CC98A;--food:#F08A52;
+  --train:#7FA4F5;--weight:#A98BF0;--note:#9AAEA2;--bad:#F07070;--warn:#F2B84C;color-scheme:dark;}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.55 Rubik,"Segoe UI",Arial,sans-serif}
+h1,h2,h3{font-family:"Secular One",Rubik,Arial,sans-serif;font-weight:400;margin:0;line-height:1.2}
+h1{font-size:1.9rem}h2{font-size:1.35rem}h3{font-size:1.1rem}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.wrap{max-width:860px;margin:0 auto;padding:16px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0 18px}
+.top .who{color:var(--muted);font-size:.9rem}
+.btn{border:0;border-radius:12px;padding:12px 18px;background:var(--brand);color:var(--brand-ink);font-weight:500}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.small{padding:7px 12px;font-size:.88rem}
+.btn:disabled{opacity:.5;cursor:default}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px}
+.muted{color:var(--muted)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spread{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+
+/* onboarding */
+.roles{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}
+.role{border:2px solid var(--line);border-radius:18px;padding:20px 16px;background:var(--surface);text-align:start}
+.role[aria-pressed="true"]{border-color:var(--brand);background:var(--surface2)}
+.role b{display:block;font-family:"Secular One",Rubik,sans-serif;font-weight:400;font-size:1.2rem}
+.role .ico{font-size:2rem;display:block;margin-bottom:6px}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.field label{font-size:.9rem;color:var(--muted)}
+.field input,.field select,.field textarea{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:11px 12px;width:100%}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+
+/* dog header */
+.dog{display:flex;gap:14px;align-items:center}
+.dog .badge{width:58px;height:58px;border-radius:50%;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-size:1.8rem;flex:none}
+.facts{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:.92rem}
+
+/* quick log */
+.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.qbtn{border:0;border-radius:16px;padding:14px 6px;background:var(--surface2);display:flex;flex-direction:column;align-items:center;gap:4px;border-bottom:4px solid var(--c)}
+.qbtn span:first-child{font-size:1.7rem;line-height:1}
+.qbtn.big{grid-column:span 2;flex-direction:row;justify-content:center;gap:10px;font-size:1.15rem;font-weight:500;background:var(--pee);color:#2A2000;border:0;padding:18px}
+.qbtn.big span:first-child{font-size:1.8rem}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px}
+.stat{background:var(--surface2);border-radius:12px;padding:10px;text-align:center}
+.stat b{display:block;font-size:1.5rem;font-family:"Secular One",Rubik,sans-serif;font-weight:400}
+.stat small{color:var(--muted)}
+.stat.bad b{color:var(--bad)}
+
+/* day strip */
+.strip{position:relative;height:46px;margin:14px 0 4px;direction:ltr}
+.strip .axis{position:absolute;left:0;right:0;top:22px;height:2px;background:var(--line)}
+.strip .now{position:absolute;top:6px;bottom:6px;width:2px;background:var(--brand);opacity:.6}
+.strip .mk{position:absolute;top:13px;width:20px;height:20px;margin-left:-10px;border-radius:50%;background:var(--c);border:2px solid var(--surface);display:grid;place-items:center;font-size:11px}
+.strip .mk.acc{box-shadow:0 0 0 2px var(--bad)}
+.hours{display:flex;justify-content:space-between;direction:ltr;font-size:.75rem;color:var(--muted)}
+
+/* heatmap */
+.heat{direction:ltr;overflow-x:auto}
+.heat table{border-collapse:separate;border-spacing:2px;width:100%;min-width:420px}
+.heat td{height:20px;border-radius:4px;background:var(--surface2);position:relative}
+.heat td.acc::after{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--bad)}
+.heat th{font-weight:400;font-size:.72rem;color:var(--muted);padding:0 4px;white-space:nowrap}
+.heat th.d{text-align:right}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-inline-end:5px}
+
+/* timeline */
+.tl{list-style:none;margin:0;padding:0}
+.tl li{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.tl li:last-child{border-bottom:0}
+.tl .t{font-variant-numeric:tabular-nums;color:var(--muted);width:46px;flex:none;padding-top:2px}
+.tl .dot{width:30px;height:30px;border-radius:50%;background:var(--c);display:grid;place-items:center;flex:none;font-size:15px}
+.tl .body{flex:1;min-width:0}
+.tl .body small{color:var(--muted);display:block}
+.tl .acc{color:var(--bad);font-weight:500}
+.x{background:none;border:0;color:var(--muted);padding:4px 8px;border-radius:8px}
+.daynav{display:flex;align-items:center;gap:6px}
+.daynav button{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface2)}
+
+/* trainer */
+.clients{display:grid;gap:10px}
+.client{display:flex;align-items:center;gap:14px;width:100%;text-align:start;border:1px solid var(--line);border-radius:16px;background:var(--surface);padding:14px}
+.client .badge{width:46px;height:46px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;font-size:1.4rem;flex:none;position:relative}
+.live{position:absolute;bottom:0;left:0;width:12px;height:12px;border-radius:50%;background:var(--walk);border:2px solid var(--surface)}
+.client .main{flex:1;min-width:0}
+.client .main b{font-family:"Secular One",Rubik,sans-serif;font-weight:400;font-size:1.1rem}
+.client .last{font-size:.9rem}
+.client .last.warn{color:var(--warn)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.chip{font-size:.8rem;padding:2px 8px;border-radius:999px;background:var(--surface2);color:var(--muted)}
+.chip.bad{color:var(--bad)}
+.empty{text-align:center;padding:34px 16px;color:var(--muted)}
+.empty .big{font-size:2.6rem;display:block;margin-bottom:6px}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet{background:var(--surface);width:100%;max-width:520px;border-radius:22px 22px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom,0px));max-height:90vh;overflow:auto}
+@media (min-width:640px){.scrim{align-items:center}.sheet{border-radius:22px}}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{border:1px solid var(--line);background:var(--surface2);border-radius:999px;padding:8px 14px}
+.seg button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:12px;z-index:30;font-size:.92rem}
+@media (max-width:520px){.quick{grid-template-columns:repeat(3,1fr)}.qbtn.big{grid-column:span 3}.stats{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(30px);opacity:0}}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><p class="muted">טוען…</p></div>
+<div id="layer"></div>
+<script type="module">
+import { firebaseConfig } from "./firebase-config.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+let fs = null, auth = null;
+/* thin adapter: same doc/collection API the app uses, backed by Firestore */
+const wrapDoc = s => ({ id: s.id, exists: s.exists(), data: () => s.data() });
+const wrapQ = s => ({ docs: s.docs.map(wrapDoc), empty: s.empty, size: s.size });
+function mkQuery(base, cons){ return {
+  where: (f,o,v) => mkQuery(base, [...cons, where(f,o,v)]),
+  orderBy: (f,d) => mkQuery(base, [...cons, orderBy(f,d)]),
+  limit: n => mkQuery(base, [...cons, limit(n)]),
+  get: async () => wrapQ(await getDocs(query(base, ...cons))),
+  onSnapshot: (n,e) => onSnapshot(query(base, ...cons), s => n(wrapQ(s)), e)
+}; }
+const DB = {
+  doc(path){ const r = doc(fs, path); return {
+    get: async () => wrapDoc(await getDoc(r)), set: d => setDoc(r, d), update: d => updateDoc(r, d),
+    onSnapshot: (n,e) => onSnapshot(r, s => n(wrapDoc(s)), e) }; },
+  collection(path){ return mkQuery(collection(fs, path), []); }
+};
+const TYPES = {
+  pee:   {label:"פיפי",  icon:"💧", c:"var(--pee)"},
+  poop:  {label:"קקי",   icon:"💩", c:"var(--poop)"},
+  walk:  {label:"טיול",  icon:"🦮", c:"var(--walk)"},
+  food:  {label:"אוכל",  icon:"🍖", c:"var(--food)"},
+  train: {label:"אימון", icon:"🎯", c:"var(--train)"},
+  weight:{label:"משקל",  icon:"⚖️", c:"var(--weight)"},
+  note:  {label:"הערה",  icon:"📝", c:"var(--note)"}
+};
+const PLACES = {out:"בחוץ", pad:"על הפד", home:"בבית (תאונה)"};
+const S = {db:null,user:null,me:null,profile:undefined,trainers:[],clients:[],days:{},names:{},
+  view:"home",sel:null,selDay:null,form:{},subs:{},clientSubs:{}};
+const $app = document.getElementById("app"), $layer = document.getElementById("layer");
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad2 = n => String(n).padStart(2,"0");
+const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; };
+const hm = t => { const d = new Date(t); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+const localInput = t => { const d = new Date(t); return `${dayKey(t)}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+const shiftDay = (k, n) => { const d = new Date(k+"T12:00"); d.setDate(d.getDate()+n); return dayKey(d.getTime()); };
+const WD = ["א׳","ב׳","ג׳","ד׳","ה׳","ו׳","ש׳"];
+function dayLabel(k){ const today = dayKey(Date.now());
+  if (k===today) return "היום"; if (k===shiftDay(today,-1)) return "אתמול";
+  const d = new Date(k+"T12:00"); return `יום ${WD[d.getDay()]} ${d.getDate()}/${d.getMonth()+1}`; }
+function ago(t){ const m = Math.round((Date.now()-t)/60000);
+  if (m<1) return "עכשיו"; if (m<60) return `לפני ${m} דק׳`;
+  const h = Math.floor(m/60); if (h<24) return `לפני ${h} שע׳${m%60?` ו־${m%60} דק׳`:""}`;
+  const d = Math.floor(h/24); return d===1 ? "לפני יום" : `לפני ${d} ימים`; }
+function toast(msg){ const el = document.createElement("div"); el.className="toast"; el.textContent=msg;
+  document.body.appendChild(el); setTimeout(()=>el.remove(), 2600); }
+
+/* ---------- data access ---------- */
+function entriesOf(uid){ return (S.days[uid]||[]).flatMap(d => d.entries||[]).sort((a,b)=>b.t-a.t); }
+function dayEntries(uid,k){ const d = (S.days[uid]||[]).find(x=>x.date===k); return (d?.entries||[]).slice().sort((a,b)=>a.t-b.t); }
+function summary(list){ const s = {pee:0,poop:0,walk:0,walkMin:0,acc:0,food:0,train:0};
+  for (const e of list){ if (e.type in s) s[e.type]++; if (e.type==="walk") s.walkMin += +e.dur||0; if (e.place==="home") s.acc++; }
+  return s; }
+
+function resolveNames(){ for (const c of S.clients) S.names[c.id] = c.ownerName || ""; }
+
+let wq = Promise.resolve();
+function writeDay(uid, key, mutate){
+  wq = wq.then(async () => {
+    const ref = S.db.doc(`logs/${uid}/days/${key}`);
+    const snap = await ref.get();
+    const cur = snap.exists ? (snap.data().entries||[]).slice() : [];
+    const next = mutate(cur).sort((a,b)=>a.t-b.t);
+    await ref.set({date:key, entries:next, updatedAt:Date.now()});
+  }).catch(e => toast(e?.code==="quota_exceeded" ? "האחסון מלא. מחקו רשומות ישנות." : "השמירה נכשלה. נסו שוב."));
+  return wq;
+}
+const newId = () => Math.random().toString(36).slice(2,10);
+const CODE_ABC = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+async function findTrainerByCode(code){
+  try {
+    const c = await getDoc(doc(fs, `codes/${code}`));
+    if (!c.exists()) return null;
+    const p = await getDoc(doc(fs, `profiles/${c.data().owner}`));
+    return p.exists() && p.data().role === "trainer" ? {id:p.id, ...p.data()} : null;
+  } catch { return null; }
+}
+/* codes/<CODE> is created inside a transaction that fails if it already exists,
+   so no two trainers can ever hold the same code. */
+async function claimCode(c){
+  const ref = doc(fs, `codes/${c}`);
+  return runTransaction(fs, async tx => {
+    const snap = await tx.get(ref);
+    if (snap.exists()) return false;
+    tx.set(ref, {owner:S.me, createdAt:Date.now()});
+    return true;
+  });
+}
+async function uniqueCode(){
+  for (let i=0;i<20;i++){
+    let c = ""; const r = crypto.getRandomValues(new Uint32Array(6));
+    for (const n of r) c += CODE_ABC[n % CODE_ABC.length];
+    if (await claimCode(c)) return c;
+  }
+  throw new Error("code_unavailable");
+}
+
+/* ---------- subscriptions ---------- */
+function sub(name, fn){ if (S.subs[name]) S.subs[name](); S.subs[name] = fn(); }
+function unsubAll(){ for (const k in S.subs) S.subs[k]?.(); S.subs={}; for (const k in S.clientSubs) S.clientSubs[k](); S.clientSubs={}; }
+function watchDays(uid, limit){
+  return S.db.collection(`logs/${uid}/days`).orderBy("date","desc").limit(limit)
+    .onSnapshot(s => { S.days[uid] = s.docs.map(d => d.data()); render(); }, ()=>{});
+}
+function startRole(){
+  unsubAll();
+  sub("me", () => S.db.doc(`profiles/${S.me}`).onSnapshot(s => {
+    const prev = S.profile?.role; S.profile = s.exists ? s.data() : null;
+    if (S.profile?.role !== prev) wireRole(); render();
+  }, ()=>{}));
+}
+function wireRole(){
+  for (const k of ["days","trainers","clients"]) { S.subs[k]?.(); delete S.subs[k]; }
+  for (const k in S.clientSubs) S.clientSubs[k](); S.clientSubs = {};
+  sub("trainers", () => S.db.collection("profiles").where("role","==","trainer").onSnapshot(s => {
+    S.trainers = s.docs.map(d => ({id:d.id, ...d.data()})); render(); }, ()=>{}));
+  if (S.profile?.role === "client") sub("days", () => watchDays(S.me, 31));
+  if (S.profile?.role === "trainer") sub("clients", () => S.db.collection("profiles").where("trainerId","==",S.me).onSnapshot(s => {
+    S.clients = s.docs.map(d => ({id:d.id, ...d.data()}));
+    const ids = new Set(S.clients.map(c=>c.id));
+    for (const id in S.clientSubs) if (!ids.has(id)) { S.clientSubs[id](); delete S.clientSubs[id]; }
+    for (const c of S.clients) if (!S.clientSubs[c.id] && Object.keys(S.clientSubs).length < 55) S.clientSubs[c.id] = watchDays(c.id, 14);
+    resolveNames(S.clients.map(c=>c.id)); render();
+  }, ()=>{}));
+}
+
+/* ---------- views ---------- */
+function topBar(right){
+  const role = S.profile?.role === "trainer" ? "מאלף" : "לקוח";
+  return `<div class="top"><div><h1>Pawgress</h1><div class="who">${S.profile ? `מחובר/ת כ${role}` : (S.me ? "השלמת הרשמה" : "יומן אילוף לכלבים")}</div></div><div class="row">${right||""}${S.me?`<button class="btn ghost small" data-act="logout">יציאה</button>`:""}</div></div>`;
+}
+
+function authScreen(){
+  const reg = S.authMode === "register";
+  return `${topBar("")}<div class="panel" style="max-width:440px;margin-inline:auto">
+    <div class="seg" style="margin-bottom:16px"><button type="button" data-act="authMode" data-v="login" aria-pressed="${!reg}">התחברות</button>
+    <button type="button" data-act="authMode" data-v="register" aria-pressed="${reg}">משתמש חדש</button></div>
+    <form id="authForm">
+      <div class="field"><label for="email">אימייל</label><input id="email" type="email" dir="ltr" autocomplete="email" required></div>
+      <div class="field"><label for="password">סיסמה</label><input id="password" type="password" dir="ltr" autocomplete="${reg?"new-password":"current-password"}" minlength="6" required></div>
+      <button class="btn" type="submit" style="width:100%">${reg ? "יצירת משתמש" : "התחברות"}</button>
+      ${reg ? "" : `<p style="text-align:center;margin:12px 0 0"><button type="button" class="x" data-act="reset">שכחתי סיסמה</button></p>`}
+    </form></div>`;
+}
+const AUTH_ERR = {"auth/invalid-credential":"אימייל או סיסמה שגויים.","auth/wrong-password":"אימייל או סיסמה שגויים.","auth/user-not-found":"אין משתמש עם האימייל הזה.",
+  "auth/email-already-in-use":"כבר קיים משתמש עם האימייל הזה. נסו להתחבר.","auth/weak-password":"הסיסמה צריכה להכיל לפחות 6 תווים.",
+  "auth/invalid-email":"כתובת האימייל לא תקינה.","auth/too-many-requests":"יותר מדי ניסיונות. נסו שוב בעוד כמה דקות."};
+
+function onboarding(){
+  const f = S.form, p = S.profile || {};
+  if (!f.role) f.role = p.role || "";
+  const trainers = S.trainers.filter(t => t.id !== S.me);
+  const roleBtns = `<div class="roles">
+    <button class="role" data-act="role" data-v="client" aria-pressed="${f.role==="client"}"><span class="ico">🐕</span><b>בעלי כלב</b><span class="muted">רושמים את היום של הכלב</span></button>
+    <button class="role" data-act="role" data-v="trainer" aria-pressed="${f.role==="trainer"}"><span class="ico">🎓</span><b>מאלף/ת</b><span class="muted">רואים את כל הלקוחות בלייב</span></button></div>`;
+  let fields = "";
+  if (f.role === "client") fields = `
+    <div class="grid2">
+      <div class="field"><label for="ownerName">השם שלך</label><input id="ownerName" required value="${esc(p.ownerName)}"></div>
+      <div class="field"><label for="dogName">שם הכלב</label><input id="dogName" required value="${esc(p.dogName)}"></div>
+      <div class="field"><label for="breed">גזע</label><input id="breed" value="${esc(p.breed)}"></div>
+      <div class="field"><label for="age">גיל</label><input id="age" placeholder="למשל 4 חודשים" value="${esc(p.age)}"></div>
+      <div class="field"><label for="weight">משקל (ק״ג)</label><input id="weight" type="number" step="0.1" min="0" inputmode="decimal" value="${esc(p.weight)}"></div>
+    </div>
+    <div class="field"><label for="trainerCode">קוד המאלף/ת</label>
+      <input id="trainerCode" dir="ltr" autocomplete="off" autocapitalize="characters" maxlength="6" placeholder="למשל K7P2QX" style="text-transform:uppercase;letter-spacing:.2em;text-align:center" value="${esc(trainers.find(t=>t.id===p.trainerId)?.code||"")}">
+      <small class="muted">${p.trainerId && trainers.find(t=>t.id===p.trainerId) ? `מקושר/ת כרגע אל ${esc(trainers.find(t=>t.id===p.trainerId).businessName)}. מחיקת הקוד מנתקת את הקישור.` : "את הקוד מקבלים מהמאלף/ת. אפשר גם להוסיף אותו מאוחר יותר בעריכת הפרופיל."}</small></div>
+    <div class="field"><label for="goals">מטרות האילוף</label><textarea id="goals" rows="2" placeholder="למשל: גמילה מצרכים בבית, הליכה ברצועה">${esc(p.goals)}</textarea></div>`;
+  if (f.role === "trainer") fields = `
+    <div class="field"><label for="businessName">שם העסק או השם שלך</label><input id="businessName" required value="${esc(p.businessName)}"></div>
+    <div class="field"><label for="phone">טלפון</label><input id="phone" type="tel" value="${esc(p.phone)}"></div>`;
+  return `${topBar(S.profile ? `<button class="btn ghost small" data-act="cancelEdit">ביטול</button>` : "")}
+    <div class="panel"><h2>${S.profile ? "עריכת פרופיל" : "איך משתמשים באתר?"}</h2>${roleBtns}
+    ${f.role ? `<form id="profileForm">${fields}<button class="btn" type="submit">${S.profile ? "שמירת שינויים" : "הרשמה"}</button></form>` : ""}</div>`;
+}
+
+function strip(list, k){
+  const start = new Date(k+"T00:00").getTime(), span = 864e5;
+  const now = Date.now(), showNow = k===dayKey(now);
+  return `<div class="strip" aria-hidden="true"><div class="axis"></div>
+    ${showNow ? `<div class="now" style="left:${((now-start)/span*100).toFixed(2)}%"></div>` : ""}
+    ${list.map(e => `<div class="mk ${e.place==="home"?"acc":""}" style="--c:${TYPES[e.type]?.c};left:${((e.t-start)/span*100).toFixed(2)}%" title="${esc(TYPES[e.type]?.label)} ${hm(e.t)}"></div>`).join("")}
+  </div><div class="hours"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>`;
+}
+
+function heatmap(uid, nDays){
+  const today = dayKey(Date.now()); let rows = "";
+  for (let i=0;i<nDays;i++){
+    const k = shiftDay(today,-i), list = dayEntries(uid,k), cells = [];
+    for (let h=0;h<24;h++){
+      const inH = list.filter(e => new Date(e.t).getHours()===h && e.type==="pee");
+      const n = inH.length, acc = inH.some(e=>e.place==="home");
+      const bg = n ? `background:color-mix(in srgb, var(--pee) ${Math.min(100,40+n*30)}%, var(--surface2))` : "";
+      cells.push(`<td class="${acc?"acc":""}" style="${bg}" title="${pad2(h)}:00 · ${n} פיפי"></td>`);
+    }
+    rows += `<tr><th class="d">${esc(dayLabel(k))}</th>${cells.join("")}</tr>`;
+  }
+  const head = Array.from({length:24},(_,h)=>`<th>${h%3===0?pad2(h):""}</th>`).join("");
+  return `<div class="heat"><table><thead><tr><th></th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="legend"><span><i style="background:var(--pee)"></i>פיפי באותה שעה</span><span><i style="background:var(--bad);border-radius:50%"></i>תאונה בבית</span></div>`;
+}
+
+function statsBlock(list){
+  const s = summary(list);
+  return `<div class="stats">
+    <div class="stat"><b>${s.pee}</b><small>פיפי</small></div>
+    <div class="stat"><b>${s.poop}</b><small>קקי</small></div>
+    <div class="stat"><b>${s.walkMin}</b><small>דק׳ טיול (${s.walk})</small></div>
+    <div class="stat ${s.acc?"bad":""}"><b>${s.acc}</b><small>תאונות</small></div></div>`;
+}
+
+function describe(e){
+  const bits = [];
+  if (e.place) bits.push(e.place==="home" ? `<span class="acc">${PLACES.home}</span>` : esc(PLACES[e.place]));
+  if (e.dur) bits.push(`${esc(e.dur)} דק׳`);
+  if (e.weight) bits.push(`${esc(e.weight)} ק״ג`);
+  if (e.note) bits.push(esc(e.note));
+  return bits.join(" · ");
+}
+function timeline(list, editable){
+  if (!list.length) return `<div class="empty"><span class="big">🐾</span>אין רשומות ביום הזה</div>`;
+  return `<ul class="tl">${list.slice().reverse().map(e => `<li>
+    <span class="t">${hm(e.t)}</span><span class="dot" style="--c:${TYPES[e.type]?.c}">${TYPES[e.type]?.icon||""}</span>
+    <div class="body"><b>${esc(TYPES[e.type]?.label||e.type)}</b><small>${describe(e)}</small></div>
+    ${editable ? `<button class="x" data-act="del" data-id="${esc(e.id)}" data-day="${dayKey(e.t)}" aria-label="מחיקת רשומה">✕</button>` : ""}
+  </li>`).join("")}</ul>`;
+}
+function dayNav(){
+  const k = S.selDay, today = dayKey(Date.now());
+  return `<div class="daynav"><button data-act="day" data-n="-1" aria-label="יום קודם">›</button>
+    <b>${esc(dayLabel(k))}</b><button data-act="day" data-n="1" ${k>=today?"disabled":""} aria-label="יום הבא">‹</button></div>`;
+}
+
+function clientHome(){
+  const p = S.profile, trainer = S.trainers.find(t=>t.id===p.trainerId);
+  const k = S.selDay, list = dayEntries(S.me, k);
+  const lastPee = entriesOf(S.me).find(e=>e.type==="pee");
+  const quick = ["poop","walk","food","train","weight","note"].map(t =>
+    `<button class="qbtn" style="--c:${TYPES[t].c}" data-act="log" data-type="${t}"><span>${TYPES[t].icon}</span><span>${TYPES[t].label}</span></button>`).join("");
+  return `${topBar(`<button class="btn ghost small" data-act="edit">עריכת פרופיל</button>`)}
+  <div class="panel"><div class="dog"><div class="badge">🐕</div><div>
+    <h2>${esc(p.dogName)}</h2>
+    <div class="facts">${p.breed?`<span>${esc(p.breed)}</span>`:""}${p.age?`<span>${esc(p.age)}</span>`:""}${p.weight?`<span>${esc(p.weight)} ק״ג</span>`:""}
+    <span>${trainer ? `מאלף/ת: ${esc(trainer.businessName)}` : "אין מאלף/ת מקושר"}</span></div></div></div></div>
+  <div class="panel"><div class="spread" style="margin-bottom:12px"><h3>רישום מהיר</h3>
+    <span class="muted">${lastPee ? `פיפי אחרון ${ago(lastPee.t)}` : ""}</span></div>
+    <div class="quick"><button class="qbtn big" data-act="log" data-type="pee"><span>💧</span><span>עשה פיפי</span></button>${quick}</div></div>
+  <div class="panel"><div class="spread">${dayNav()}</div>${strip(list,k)}${statsBlock(list)}</div>
+  <div class="panel"><h3 style="margin-bottom:10px">7 ימים אחרונים, לפי שעה</h3>${heatmap(S.me,7)}</div>
+  <div class="panel"><h3 style="margin-bottom:6px">כל הרשומות של ${esc(dayLabel(k))}</h3>${timeline(list,true)}</div>`;
+}
+
+function trainerHome(){
+  const p = S.profile;
+  const rows = S.clients.map(c => {
+    const all = entriesOf(c.id), last = all[0], lastPee = all.find(e=>e.type==="pee");
+    const today = summary(dayEntries(c.id, dayKey(Date.now())));
+    return {c, last, lastPee, today};
+  }).sort((a,b)=>(b.last?.t||0)-(a.last?.t||0));
+  const cards = rows.map(({c,last,lastPee,today}) => {
+    const fresh = last && Date.now()-last.t < 30*6e4, stale = lastPee && Date.now()-lastPee.t > 4*36e5;
+    const owner = S.names[c.id];
+    return `<button class="client" data-act="open" data-id="${esc(c.id)}">
+      <span class="badge">🐕${fresh?`<span class="live" title="פעילות בחצי השעה האחרונה"></span>`:""}</span>
+      <span class="main"><b>${esc(c.dogName||"כלב")}</b>${owner?` <span class="muted">· ${esc(owner)}</span>`:""}
+        <span class="last ${stale?"warn":""}" style="display:block">${lastPee ? `פיפי אחרון ${ago(lastPee.t)}` : "עוד לא נרשם פיפי"}</span>
+        <span class="chips"><span class="chip">💧 ${today.pee} היום</span><span class="chip">🦮 ${today.walkMin} דק׳</span>
+        ${today.acc?`<span class="chip bad">${today.acc} תאונות</span>`:""}${last?`<span class="chip">${esc(TYPES[last.type]?.label)} ${hm(last.t)}</span>`:""}</span></span>
+    </button>`; }).join("");
+  return `${topBar(`<button class="btn ghost small" data-act="edit">עריכת פרופיל</button>`)}
+  <div class="panel"><div class="spread"><div><h2>${esc(p.businessName)}</h2><span class="muted">${S.clients.length} לקוחות · מתעדכן בזמן אמת</span></div>
+    ${p.code ? `<div style="text-align:center"><small class="muted" style="display:block">הקוד שלך ללקוחות</small>
+      <button class="btn ghost" data-act="copyCode" dir="ltr" style="font-family:'Secular One',Rubik,sans-serif;font-size:1.5rem;letter-spacing:.25em;padding:6px 16px" aria-label="העתקת הקוד">${esc(p.code)}</button>
+      <small class="muted" style="display:block">לחיצה מעתיקה</small></div>`
+    : `<button class="btn" data-act="genCode">יצירת קוד ללקוחות</button>`}</div></div>
+  ${cards ? `<div class="clients">${cards}</div>` : `<div class="panel empty"><span class="big">🦴</span>עוד אין לקוחות. כשבעלי כלב יירשמו ויבחרו בך, הם יופיעו כאן.</div>`}`;
+}
+
+function clientDetail(){
+  const c = S.clients.find(x=>x.id===S.sel); if (!c) { S.view="home"; return trainerHome(); }
+  const k = S.selDay, list = dayEntries(c.id,k), owner = S.names[c.id];
+  const week = []; for (let i=0;i<7;i++) week.push(...dayEntries(c.id, shiftDay(dayKey(Date.now()),-i)));
+  const ws = summary(week);
+  return `${topBar(`<button class="btn ghost small" data-act="back">כל הלקוחות</button>`)}
+  <div class="panel"><div class="dog"><div class="badge">🐕</div><div><h2>${esc(c.dogName)}</h2>
+    <div class="facts">${owner?`<span>${esc(owner)}</span>`:""}${c.breed?`<span>${esc(c.breed)}</span>`:""}${c.age?`<span>${esc(c.age)}</span>`:""}${c.weight?`<span>${esc(c.weight)} ק״ג</span>`:""}</div></div></div>
+    ${c.goals?`<p style="margin:12px 0 0"><span class="muted">מטרות: </span>${esc(c.goals)}</p>`:""}</div>
+  <div class="panel"><h3 style="margin-bottom:8px">שבוע אחרון</h3>
+    <div class="stats"><div class="stat"><b>${(ws.pee/7).toFixed(1)}</b><small>פיפי ביום בממוצע</small></div>
+    <div class="stat ${ws.acc?"bad":""}"><b>${ws.acc}</b><small>תאונות</small></div>
+    <div class="stat"><b>${ws.pee?Math.round((ws.pee-week.filter(e=>e.type==="pee"&&e.place==="home").length)/ws.pee*100):0}%</b><small>פיפי במקום הנכון</small></div>
+    <div class="stat"><b>${Math.round(ws.walkMin/7)}</b><small>דק׳ טיול ביום</small></div></div>
+    <div style="margin-top:16px">${heatmap(c.id,7)}</div></div>
+  <div class="panel"><div class="spread">${dayNav()}</div>${strip(list,k)}${statsBlock(list)}</div>
+  <div class="panel"><h3 style="margin-bottom:6px">רשומות</h3>${timeline(list,false)}</div>`;
+}
+
+function render(){
+  if (!S.db) return;
+  if (!S.me) { if (!$app.querySelector("#authForm") || S._authDrawn !== S.authMode) { $app.innerHTML = authScreen(); S._authDrawn = S.authMode; } return; }
+  if (S.profile === undefined) { $app.innerHTML = `<p class="muted">טוען…</p>`; return; }
+  if (!S.profile || S.view==="edit") {
+    const form = $app.querySelector("#profileForm");
+    if (!form && !$app.querySelector(".roles")) { $app.innerHTML = onboarding(); return; }
+    const sel = form?.querySelector("#trainerId");
+    if (sel && document.activeElement !== sel) {
+      const cur = sel.value;
+      sel.innerHTML = `<option value="">עוד לא נבחר</option>` + S.trainers.filter(t=>t.id!==S.me)
+        .map(t=>`<option value="${esc(t.id)}">${esc(t.businessName||"מאלף/ת")}</option>`).join("");
+      sel.value = cur;
+    }
+    return;
+  }
+  if (S.profile.role==="client") $app.innerHTML = clientHome();
+  else $app.innerHTML = S.view==="client" ? clientDetail() : trainerHome();
+}
+
+/* ---------- log sheet ---------- */
+function openSheet(type){
+  const T = TYPES[type]; const st = {place: (type==="pee"||type==="poop") ? "out" : null, peeOnWalk:true, poopOnWalk:false};
+  const draw = () => {
+    let extra = "";
+    if (type==="pee"||type==="poop") extra = `<div class="field"><label>איפה?</label><div class="seg">${Object.entries(PLACES).map(([k,v])=>`<button type="button" data-place="${k}" aria-pressed="${st.place===k}">${v}</button>`).join("")}</div></div>`;
+    if (type==="walk") extra = `<div class="field"><label for="dur">משך (דקות)</label><input id="dur" type="number" min="1" inputmode="numeric" value="20"></div>
+      <div class="field"><label>מה הוא עשה בטיול?</label><div class="seg">
+      <button type="button" data-tog="peeOnWalk" aria-pressed="${st.peeOnWalk}">💧 פיפי</button>
+      <button type="button" data-tog="poopOnWalk" aria-pressed="${st.poopOnWalk}">💩 קקי</button></div></div>`;
+    if (type==="train") extra = `<div class="field"><label for="dur">משך (דקות)</label><input id="dur" type="number" min="1" inputmode="numeric" value="10"></div>`;
+    if (type==="weight") extra = `<div class="field"><label for="wt">משקל (ק״ג)</label><input id="wt" type="number" step="0.1" min="0" inputmode="decimal" required value="${esc(S.profile.weight||"")}"></div>`;
+    if (type==="food") extra = `<div class="field"><label for="note">מה ובאיזו כמות?</label><input id="note" placeholder="למשל: כוס מזון יבש"></div>`;
+    const noteField = type==="food" ? "" : `<div class="field"><label for="note">${type==="train"?"מה תרגלתם?":"הערה (לא חובה)"}</label><input id="note"></div>`;
+    $layer.innerHTML = `<div class="scrim" data-act="close"><form class="sheet" id="logForm" role="dialog" aria-label="רישום ${T.label}">
+      <div class="spread" style="margin-bottom:14px"><h2>${T.icon} ${T.label}</h2><button type="button" class="x" data-act="close" aria-label="סגירה">✕</button></div>
+      <div class="field"><label for="when">מתי?</label><input id="when" type="datetime-local" value="${localInput(Date.now())}"></div>
+      ${extra}${noteField}<button class="btn" type="submit" style="width:100%">שמירה</button></form></div>`;
+  };
+  draw();
+  const form = $layer.querySelector("#logForm");
+  $layer.onclick = ev => {
+    const t = ev.target;
+    if (t.dataset.act==="close" && (t===ev.currentTarget.firstElementChild || t.closest("button"))) { $layer.innerHTML=""; return; }
+    const pb = t.closest("[data-place]"); if (pb){ st.place = pb.dataset.place; form.querySelectorAll("[data-place]").forEach(b=>b.setAttribute("aria-pressed", b===pb)); }
+    const tb = t.closest("[data-tog]"); if (tb){ st[tb.dataset.tog] = !st[tb.dataset.tog]; tb.setAttribute("aria-pressed", st[tb.dataset.tog]); }
+  };
+  form.onsubmit = async ev => {
+    ev.preventDefault();
+    const when = new Date(form.querySelector("#when").value).getTime() || Date.now();
+    const note = form.querySelector("#note")?.value.trim() || "";
+    const e = {id:newId(), type, t:when}; if (note) e.note = note;
+    if (st.place && (type==="pee"||type==="poop")) e.place = st.place;
+    const dur = form.querySelector("#dur")?.value; if (dur) e.dur = +dur;
+    const add = [e];
+    if (type==="walk"){ if (st.peeOnWalk) add.push({id:newId(),type:"pee",t:when,place:"out",note:"בטיול"}); if (st.poopOnWalk) add.push({id:newId(),type:"poop",t:when,place:"out",note:"בטיול"}); }
+    if (type==="weight"){ const w = +form.querySelector("#wt").value; if (!w) return; e.weight = w; }
+    form.querySelector("button[type=submit]").disabled = true;
+    S.selDay = dayKey(when);
+    await writeDay(S.me, dayKey(when), cur => cur.concat(add));
+    if (type==="weight") { try { await S.db.doc(`profiles/${S.me}`).update({weight:e.weight}); } catch {} }
+    $layer.innerHTML = ""; toast(`${T.label} נרשם`);
+  };
+  setTimeout(()=>form.querySelector("#when")?.blur(),0);
+}
+
+/* ---------- events ---------- */
+$app.addEventListener("click", ev => {
+  const b = ev.target.closest("[data-act]"); if (!b) return;
+  const a = b.dataset.act;
+  if (a==="role"){ S.form = {role:b.dataset.v}; $app.innerHTML = onboarding(); }
+  if (a==="edit"){ S.view="edit"; S.form={role:S.profile.role}; render(); }
+  if (a==="cancelEdit"){ S.view="home"; render(); }
+  if (a==="log") openSheet(b.dataset.type);
+  if (a==="open"){ S.view="client"; S.sel=b.dataset.id; S.selDay=dayKey(Date.now()); render(); scrollTo(0,0); }
+  if (a==="back"){ S.view="home"; S.sel=null; S.selDay=dayKey(Date.now()); render(); }
+  if (a==="day"){ const n = shiftDay(S.selDay, +b.dataset.n); if (n<=dayKey(Date.now())) { S.selDay=n; render(); } }
+  if (a==="authMode"){ S.authMode = b.dataset.v; render(); }
+  if (a==="logout"){ signOut(auth); }
+  if (a==="reset"){ const em = $app.querySelector("#email")?.value.trim(); if (!em) { toast("כתבו קודם את האימייל"); return; }
+    sendPasswordResetEmail(auth, em).then(()=>toast("נשלח אימייל לאיפוס סיסמה"), e=>toast(AUTH_ERR[e.code]||"השליחה נכשלה")); }
+  if (a==="copyCode"){ navigator.clipboard?.writeText(S.profile.code).then(()=>toast("הקוד הועתק"), ()=>toast(`הקוד: ${S.profile.code}`)); }
+  if (a==="genCode"){ b.disabled = true; uniqueCode().then(code => S.db.doc(`profiles/${S.me}`).update({code})).then(()=>toast("הקוד נוצר"), ()=>{ b.disabled=false; toast("יצירת הקוד נכשלה. נסו שוב."); }); }
+  if (a==="del" && confirm("למחוק את הרשומה?")) { const id=b.dataset.id; writeDay(S.me, b.dataset.day, cur => cur.filter(e=>e.id!==id)); }
+});
+$app.addEventListener("submit", async ev => {
+  if (ev.target.id==="authForm"){ ev.preventDefault();
+    const em = ev.target.querySelector("#email").value.trim(), pw = ev.target.querySelector("#password").value;
+    const btn = ev.target.querySelector("button[type=submit]"); btn.disabled = true;
+    try { if (S.authMode==="register") await createUserWithEmailAndPassword(auth, em, pw); else await signInWithEmailAndPassword(auth, em, pw); }
+    catch (e) { toast(AUTH_ERR[e.code] || "משהו השתבש. נסו שוב."); btn.disabled = false; }
+    return; }
+  if (ev.target.id!=="profileForm") return; ev.preventDefault();
+  const v = id => ev.target.querySelector("#"+id)?.value.trim() || "";
+  const role = S.form.role; let data;
+  if (role==="client"){ if (!v("dogName")) return;
+    const code = v("trainerCode").toUpperCase().replace(/[^A-Z0-9]/g,"");
+    let trainerId = "";
+    if (code){
+      const t = S.trainers.find(x=>x.code===code) || await findTrainerByCode(code);
+      if (!t){ toast("לא נמצא מאלף/ת עם הקוד הזה. בדקו את הקוד ונסו שוב."); return; }
+      trainerId = t.id;
+    }
+    data = {role, ownerName:v("ownerName"), dogName:v("dogName"), breed:v("breed"), age:v("age"), weight:v("weight") ? +v("weight") : null, trainerId, goals:v("goals")}; }
+  else { if (!v("businessName")) return;
+    let code = S.profile?.role==="trainer" ? S.profile.code : "";
+    if (!code) { try { code = await uniqueCode(); } catch { toast("לא הצלחנו ליצור קוד. נסו שוב."); return; } }
+    data = {role, businessName:v("businessName"), phone:v("phone"), code}; }
+  data.createdAt = S.profile?.createdAt || Date.now();
+  ev.target.querySelector("button[type=submit]").disabled = true;
+  try { await S.db.doc(`profiles/${S.me}`).set(data); S.view="home"; S.form={}; toast(S.profile ? "הפרופיל נשמר" : "נרשמת בהצלחה"); }
+  catch { toast("לא הצלחנו לשמור. בדקו את החיבור ונסו שוב."); ev.target.querySelector("button[type=submit]").disabled=false; }
+});
+
+/* ---------- boot ---------- */
+S.selDay = dayKey(Date.now()); S.authMode = "login";
+if (!firebaseConfig?.apiKey || firebaseConfig.apiKey.startsWith("YOUR_")) {
+  $app.innerHTML = `${topBar("")}<div class="panel empty"><span class="big">🔧</span>חסרים פרטי Firebase. מלאו אותם בקובץ firebase-config.js.</div>`;
+} else {
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app); fs = getFirestore(app); S.db = DB;
+  onAuthStateChanged(auth, u => {
+    unsubAll(); $layer.innerHTML = "";
+    S.me = u ? u.uid : null; S.profile = u ? undefined : undefined;
+    S.view = "home"; S.sel = null; S.form = {}; S.clients = []; S.days = {}; S._authDrawn = null;
+    render();
+    if (u) startRole();
+  });
+  setInterval(() => { if (S.me && !$layer.innerHTML && S.view!=="edit" && S.profile) render(); }, 60000);
+}
+</script>
+</body>
+</html>
