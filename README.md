@@ -10,7 +10,7 @@
 ## הקמה
 
 1. ב־Firebase Console: יוצרים פרויקט, מוסיפים Web app.
-2. **Authentication** → Sign-in method → מפעילים **Email/Password**.
+2. **Authentication** → Sign-in method → מפעילים **Email/Password** ו־**Google**.
 3. **Firestore Database** → יוצרים מסד נתונים, ובלשונית **Rules** מדביקים את התוכן של `firestore.rules` ומפרסמים.
 4. מעתיקים את פרטי ה־config לקובץ `firebase-config.js`.
 5. ב־Authentication → Settings → **Authorized domains** מוסיפים את הדומיין של Vercel (למשל `pawgress.vercel.app`).
