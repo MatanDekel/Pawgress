@@ -128,6 +128,35 @@ button{cursor:pointer}
 .seg button{border:1px solid var(--line);background:var(--surface2);border-radius:999px;padding:8px 14px}
 .seg button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
 .toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:12px;z-index:30;font-size:.92rem}
+/* tabs, homework, library */
+.tabs{display:flex;gap:6px;margin-bottom:16px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:4px}
+.tabs button{flex:1;border:0;background:none;padding:10px;border-radius:10px;font-weight:500;color:var(--muted)}
+.tabs button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink)}
+.hw{list-style:none;margin:0;padding:0}
+.hwday{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);align-items:flex-start}
+.hwday:last-child{border-bottom:0}
+.hwday.today .hwdate b{color:var(--brand)}
+.hwday.past .hwdate{opacity:.7}
+.hwdate{width:96px;flex:none;padding-top:7px;font-size:.92rem}
+.hwitems{flex:1;display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.hwchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:7px 10px;font-size:.92rem;text-align:start;max-width:100%}
+.hwchip.done{border-color:var(--walk)}
+.hwchip.new{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 16%,var(--surface2))}
+.hwchip.seen{border-color:var(--train)}
+.hwadd{border:1px dashed var(--line);background:none;border-radius:10px;width:40px;height:36px;color:var(--muted);font-size:1.1rem}
+.chip.new{color:var(--warn);font-weight:500}
+.folders{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.folder{border:1px solid var(--line);background:var(--surface2);border-radius:16px;padding:16px;text-align:start;display:flex;flex-direction:column;gap:2px}
+.folder .ico{font-size:1.6rem}
+.lessonrow{display:block;width:100%;text-align:start;border:0;border-bottom:1px solid var(--line);background:none;padding:12px 2px}
+.lessonrow:last-child{border-bottom:0}
+.tag{font-size:.78rem;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--train) 14%,var(--surface2));color:var(--train)}
+.search{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:11px 12px;width:100%}
+.lessonbody{line-height:1.75}.lessonbody p{margin:0 0 .6em}.lessonbody ul{margin:0 0 .6em;padding-inline-start:1.3em}.lessonbody h3{margin:.8em 0 .3em}
+.sheet video{width:100%;max-height:55vh;border-radius:12px;background:#000;margin:6px 0 4px;display:block}
+.progress{height:8px;border-radius:99px;background:var(--surface2);overflow:hidden}.progress i{display:block;height:100%;background:var(--brand);transition:width .2s}
+.notebox{background:var(--surface2);border-radius:12px;padding:12px;margin:12px 0 0}
+details summary{cursor:pointer;padding:6px 0}
 @media (max-width:520px){.quick{grid-template-columns:repeat(3,1fr)}.qbtn.big{grid-column:span 3}.stats{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(30px);opacity:0}}}
 </style>
@@ -139,9 +168,10 @@ button{cursor:pointer}
 import { firebaseConfig } from "./firebase-config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot, runTransaction, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-let fs = null, auth = null;
+let fs = null, auth = null, storage = null;
 /* thin adapter: same doc/collection API the app uses, backed by Firestore */
 const wrapDoc = s => ({ id: s.id, exists: s.exists(), data: () => s.data() });
 const wrapQ = s => ({ docs: s.docs.map(wrapDoc), empty: s.empty, size: s.size });
@@ -154,7 +184,7 @@ function mkQuery(base, cons){ return {
 }; }
 const DB = {
   doc(path){ const r = doc(fs, path); return {
-    get: async () => wrapDoc(await getDoc(r)), set: d => setDoc(r, d), update: d => updateDoc(r, d),
+    get: async () => wrapDoc(await getDoc(r)), set: d => setDoc(r, d), update: d => updateDoc(r, d), delete: () => deleteDoc(r),
     onSnapshot: (n,e) => onSnapshot(r, s => n(wrapDoc(s)), e) }; },
   collection(path){ return mkQuery(collection(fs, path), []); }
 };
@@ -249,21 +279,34 @@ function watchDays(uid, limit){
 function startRole(){
   unsubAll();
   sub("me", () => S.db.doc(`profiles/${S.me}`).onSnapshot(s => {
-    const prev = S.profile?.role; S.profile = s.exists ? s.data() : null;
-    if (S.profile?.role !== prev) wireRole(); render();
+    const sig = p => `${p?.role||""}|${p?.trainerId||""}`;
+    const prev = sig(S.profile); S.profile = s.exists ? s.data() : null;
+    if (sig(S.profile) !== prev) wireRole(); render();
   }, ()=>{}));
 }
 function wireRole(){
-  for (const k of ["days","trainers","clients"]) { S.subs[k]?.(); delete S.subs[k]; }
+  for (const k of ["days","trainers","clients","folders","lessons","hw"]) { S.subs[k]?.(); delete S.subs[k]; }
   for (const k in S.clientSubs) S.clientSubs[k](); S.clientSubs = {};
   sub("trainers", () => S.db.collection("profiles").where("role","==","trainer").onSnapshot(s => {
     S.trainers = s.docs.map(d => ({id:d.id, ...d.data()})); render(); }, ()=>{}));
-  if (S.profile?.role === "client") sub("days", () => watchDays(S.me, 31));
+  S.lessons = []; S.folders = [];
+  const watchLessons = tid => S.db.collection(`trainers/${tid}/lessons`).onSnapshot(s => {
+    S.lessons = s.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b)=>(a.title||"").localeCompare(b.title||"","he")); render(); }, ()=>{});
+  if (S.profile?.role === "client") {
+    sub("days", () => watchDays(S.me, 31));
+    sub("hw", () => watchHw(S.me));
+    if (S.profile.trainerId) sub("lessons", () => watchLessons(S.profile.trainerId));
+  }
+  if (S.profile?.role === "trainer") {
+    sub("lessons", () => watchLessons(S.me));
+    sub("folders", () => S.db.collection(`trainers/${S.me}/folders`).onSnapshot(s => {
+      S.folders = s.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)); render(); }, ()=>{}));
+  }
   if (S.profile?.role === "trainer") sub("clients", () => S.db.collection("profiles").where("trainerId","==",S.me).onSnapshot(s => {
     S.clients = s.docs.map(d => ({id:d.id, ...d.data()}));
     const ids = new Set(S.clients.map(c=>c.id));
     for (const id in S.clientSubs) if (!ids.has(id)) { S.clientSubs[id](); delete S.clientSubs[id]; }
-    for (const c of S.clients) if (!S.clientSubs[c.id] && Object.keys(S.clientSubs).length < 55) S.clientSubs[c.id] = watchDays(c.id, 14);
+    for (const c of S.clients) if (!S.clientSubs[c.id] && Object.keys(S.clientSubs).length < 200) { const u1 = watchDays(c.id, 14), u2 = watchHw(c.id); S.clientSubs[c.id] = () => { u1(); u2(); }; }
     resolveNames(S.clients.map(c=>c.id)); render();
   }, ()=>{}));
 }
@@ -393,6 +436,7 @@ function clientHome(){
     <h2>${esc(p.dogName)}</h2>
     <div class="facts">${p.breed?`<span>${esc(p.breed)}</span>`:""}${p.age?`<span>${esc(p.age)}</span>`:""}${p.weight?`<span>${esc(p.weight)} ק״ג</span>`:""}
     <span>${trainer ? `מאלף/ת: ${esc(trainer.businessName)}` : "אין מאלף/ת מקושר"}</span></div></div></div></div>
+  ${p.trainerId ? `<div class="panel">${hwCalendar(S.me,false)}</div>` : ""}
   <div class="panel"><div class="spread" style="margin-bottom:12px"><h3>רישום מהיר</h3>
     <span class="muted">${lastPee ? `פיפי אחרון ${ago(lastPee.t)}` : ""}</span></div>
     <div class="quick"><button class="qbtn big" data-act="log" data-type="pee"><span>💧</span><span>עשה פיפי</span></button>${quick}</div></div>
@@ -411,14 +455,15 @@ function trainerHome(){
   const cards = rows.map(({c,last,lastPee,today}) => {
     const fresh = last && Date.now()-last.t < 30*6e4, stale = lastPee && Date.now()-lastPee.t > 4*36e5;
     const owner = S.names[c.id];
+    const newV = hwAll(c.id).filter(i=>i.video&&!i.seen).length, hwT = hwDay(c.id, dayKey(Date.now()));
     return `<button class="client" data-act="open" data-id="${esc(c.id)}">
       <span class="badge">🐕${fresh?`<span class="live" title="פעילות בחצי השעה האחרונה"></span>`:""}</span>
       <span class="main"><b>${esc(c.dogName||"כלב")}</b>${owner?` <span class="muted">· ${esc(owner)}</span>`:""}
         <span class="last ${stale?"warn":""}" style="display:block">${lastPee ? `פיפי אחרון ${ago(lastPee.t)}` : "עוד לא נרשם פיפי"}</span>
-        <span class="chips"><span class="chip">💧 ${today.pee} היום</span><span class="chip">🦮 ${today.walkMin} דק׳</span>
+        <span class="chips">${newV?`<span class="chip new">🎬 ${newV} ${newV===1?"סרטון חדש":"סרטונים חדשים"}</span>`:""}${hwT.length?`<span class="chip">📚 ${hwT.filter(i=>i.done).length}/${hwT.length} שיעורים היום</span>`:""}<span class="chip">💧 ${today.pee} היום</span><span class="chip">🦮 ${today.walkMin} דק׳</span>
         ${today.acc?`<span class="chip bad">${today.acc} תאונות</span>`:""}${last?`<span class="chip">${esc(TYPES[last.type]?.label)} ${hm(last.t)}</span>`:""}</span></span>
     </button>`; }).join("");
-  return `${topBar(`<button class="btn ghost small" data-act="edit">עריכת פרופיל</button>`)}
+  return `${topBar(`<button class="btn ghost small" data-act="edit">עריכת פרופיל</button>`)}${trainerTabs()}
   <div class="panel"><div class="spread"><div><h2>${esc(p.businessName)}</h2><span class="muted">${S.clients.length} לקוחות · מתעדכן בזמן אמת</span></div>
     ${p.code ? `<div style="text-align:center"><small class="muted" style="display:block">הקוד שלך ללקוחות</small>
       <button class="btn ghost" data-act="copyCode" dir="ltr" style="font-family:'Secular One',Rubik,sans-serif;font-size:1.5rem;letter-spacing:.25em;padding:6px 16px" aria-label="העתקת הקוד">${esc(p.code)}</button>
@@ -436,6 +481,7 @@ function clientDetail(){
   <div class="panel"><div class="dog"><div class="badge">🐕</div><div><h2>${esc(c.dogName)}</h2>
     <div class="facts">${owner?`<span>${esc(owner)}</span>`:""}${c.breed?`<span>${esc(c.breed)}</span>`:""}${c.age?`<span>${esc(c.age)}</span>`:""}${c.weight?`<span>${esc(c.weight)} ק״ג</span>`:""}</div></div></div>
     ${c.goals?`<p style="margin:12px 0 0"><span class="muted">מטרות: </span>${esc(c.goals)}</p>`:""}</div>
+  <div class="panel">${hwCalendar(c.id,true)}</div>
   <div class="panel"><h3 style="margin-bottom:8px">שבוע אחרון</h3>
     <div class="stats"><div class="stat"><b>${(ws.pee/7).toFixed(1)}</b><small>פיפי ביום בממוצע</small></div>
     <div class="stat ${ws.acc?"bad":""}"><b>${ws.acc}</b><small>תאונות</small></div>
@@ -446,7 +492,8 @@ function clientDetail(){
   <div class="panel"><h3 style="margin-bottom:6px">רשומות</h3>${timeline(list,false)}</div>`;
 }
 
-function render(){
+function render(){ renderMain(); if (S.sheetRedraw && $layer.innerHTML) S.sheetRedraw(); }
+function renderMain(){
   if (!S.db) return;
   if (!S.me) { if (!$app.querySelector("#authForm") || S._authDrawn !== S.authMode) { $app.innerHTML = authScreen(); S._authDrawn = S.authMode; } return; }
   if (S.profile === undefined) { $app.innerHTML = `<p class="muted">טוען…</p>`; return; }
@@ -463,7 +510,232 @@ function render(){
     return;
   }
   if (S.profile.role==="client") $app.innerHTML = clientHome();
+  else if (S.view==="lesson") { const f = $app.querySelector("#lessonForm"); if (!f || f.dataset.id !== S.editLesson) $app.innerHTML = lessonEditor(); }
+  else if (S.view==="library") {
+    const r = $app.querySelector("#libResults");
+    if (document.activeElement?.id==="libSearch" && r && !S.libFolder) r.innerHTML = libResults(); else $app.innerHTML = libraryView();
+  }
   else $app.innerHTML = S.view==="client" ? clientDetail() : trainerHome();
+}
+
+/* ---------- homework & lesson library ---------- */
+const HW_DAYS = 14;
+Object.assign(S, {folders:[], lessons:[], hw:{}, libFolder:null, libQ:"", editLesson:null, hwStart:null, uploads:{}, sheetRedraw:null});
+const shortDate = k => { const d = new Date(k+"T12:00"); return `${d.getDate()}/${d.getMonth()+1}`; };
+const lessonById = id => S.lessons.find(l => l.id === id);
+const matches = (l,q) => (l.title||"").toLowerCase().includes(q) || (l.tags||[]).some(t => t.toLowerCase().includes(q));
+const tagChips = tags => (tags||[]).map(t => `<span class="tag">${esc(t)}</span>`).join("");
+
+function watchHw(uid){
+  return S.db.collection(`homework/${uid}/days`).orderBy("date","desc").limit(60)
+    .onSnapshot(s => { S.hw[uid] = s.docs.map(d => d.data()); render(); }, ()=>{});
+}
+const hwDay = (uid,k) => (S.hw[uid]||[]).find(d => d.date===k)?.items || [];
+const hwAll = uid => (S.hw[uid]||[]).flatMap(d => (d.items||[]).map(i => ({...i, date:d.date})));
+
+let hq = Promise.resolve();
+function writeHw(uid, key, mutate){
+  hq = hq.then(async () => {
+    const ref = S.db.doc(`homework/${uid}/days/${key}`);
+    const snap = await ref.get();
+    const cur = snap.exists ? (snap.data().items||[]).map(i => ({...i})) : [];
+    const trainerId = S.profile.role==="trainer" ? S.me : S.profile.trainerId;
+    await ref.set({date:key, trainerId, items:mutate(cur), updatedAt:Date.now()});
+  }).catch(() => toast("השמירה נכשלה. נסו שוב."));
+  return hq;
+}
+const patchItem = (uid,key,id,patch) => writeHw(uid, key, items => items.map(i => i.id===id ? {...i, ...patch} : i));
+
+function md(text){
+  let out = "", inList = false;
+  for (let l of esc(text||"").split("\n")){
+    l = l.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    if (/^\s*[-•]\s+/.test(l)) { if (!inList) { out += "<ul>"; inList = true; } out += `<li>${l.replace(/^\s*[-•]\s+/,"")}</li>`; continue; }
+    if (inList) { out += "</ul>"; inList = false; }
+    if (/^#\s+/.test(l)) out += `<h3>${l.replace(/^#\s+/,"")}</h3>`;
+    else if (l.trim()) out += `<p>${l}</p>`;
+  }
+  return inList ? out + "</ul>" : out;
+}
+
+function itemStatus(it, isT){
+  if (it.video && !it.seen) return {cls:"new",  icon:"🎬", txt: isT ? "סרטון חדש" : "סרטון נשלח"};
+  if (it.seen)              return {cls:"seen", icon:"👁", txt: isT ? "נצפה" : "המאלף/ת ראו"};
+  if (it.done)              return {cls:"done", icon:"✓",  txt:"בוצע"};
+  return {cls:"", icon:"○", txt:"טרם בוצע"};
+}
+function hwChip(uid,k,it,isT){
+  const st = itemStatus(it,isT);
+  return `<button class="hwchip ${st.cls}" data-act="hwItem" data-uid="${esc(uid)}" data-day="${k}" data-id="${esc(it.id)}" title="${esc(st.txt)}"><span aria-hidden="true">${st.icon}</span>${esc(lessonById(it.lessonId)?.title || it.title)}</button>`;
+}
+function hwCalendar(uid, isT){
+  const today = dayKey(Date.now()), start = S.hwStart || today, end = shiftDay(start, HW_DAYS-1);
+  let rows = "";
+  for (let i=0;i<HW_DAYS;i++){
+    const k = shiftDay(start,i), items = hwDay(uid,k);
+    if (!isT && !items.length) continue;
+    rows += `<li class="hwday ${k===today?"today":""} ${k<today?"past":""}"><div class="hwdate"><b>${esc(dayLabel(k))}</b></div>
+      <div class="hwitems">${items.map(it => hwChip(uid,k,it,isT)).join("")}
+      ${isT ? `<button class="hwadd" data-act="hwAdd" data-day="${k}" aria-label="הוספת שיעור ל${esc(dayLabel(k))}">＋</button>` : ""}</div></li>`;
+  }
+  return `<div class="spread" style="margin-bottom:4px"><h3>שיעורי בית</h3>
+    <div class="daynav"><button data-act="hwNav" data-n="-${HW_DAYS}" aria-label="שבועיים קודמים">›</button>
+    <small class="muted">${shortDate(start)}–${shortDate(end)}</small>
+    <button data-act="hwNav" data-n="${HW_DAYS}" aria-label="שבועיים הבאים">‹</button></div></div>
+    ${rows ? `<ul class="hw">${rows}</ul>` : `<div class="empty" style="padding:18px">אין שיעורי בית בתקופה הזו</div>`}`;
+}
+
+function closeSheet(){ $layer.innerHTML = ""; $layer.onclick = null; S.sheetRedraw = null; }
+const isClose = t => t.classList.contains("scrim") || t.closest("button[data-act=close]");
+
+function promptSheet(title, value, onSave){
+  $layer.innerHTML = `<div class="scrim"><form class="sheet" id="promptForm"><div class="spread" style="margin-bottom:12px"><h2>${esc(title)}</h2>
+    <button type="button" class="x" data-act="close" aria-label="סגירה">✕</button></div>
+    <div class="field"><input id="pv" required value="${esc(value)}" aria-label="${esc(title)}"></div>
+    <button class="btn" type="submit" style="width:100%">שמירה</button></form></div>`;
+  const inp = $layer.querySelector("#pv"); inp.focus();
+  $layer.onclick = ev => { if (isClose(ev.target)) closeSheet(); };
+  $layer.querySelector("#promptForm").onsubmit = ev => { ev.preventDefault(); const v = inp.value.trim(); if (!v) return; closeSheet(); onSave(v); };
+}
+
+function openPicker(uid, k){
+  const list = q => {
+    if (!S.lessons.length) return `<div class="empty">אין עדיין דפי מידע. הוסיפו אותם בספריית השיעורים.</div>`;
+    const ls = q ? S.lessons.filter(l => matches(l,q)) : S.lessons;
+    if (!ls.length) return `<div class="empty">לא נמצאו דפי מידע</div>`;
+    return S.folders.map(f => { const fl = ls.filter(l => l.folderId===f.id); return fl.length ? `<h3 class="muted" style="margin:14px 0 2px;font-size:1rem">📁 ${esc(f.name)}</h3>
+      ${fl.map(l => `<button class="lessonrow" data-pick="${esc(l.id)}"><b>${esc(l.title)}</b><span class="chips">${tagChips(l.tags)}</span></button>`).join("")}` : ""; }).join("");
+  };
+  const existing = hwDay(uid,k);
+  $layer.innerHTML = `<div class="scrim"><div class="sheet" role="dialog" aria-label="הוספת שיעור">
+    <div class="spread"><h2>שיעור ל${esc(dayLabel(k))}</h2><button class="x" data-act="close" aria-label="סגירה">✕</button></div>
+    ${existing.length ? `<p class="muted" style="margin:4px 0 0">כבר ביום הזה: ${existing.map(i => esc(lessonById(i.lessonId)?.title || i.title)).join("، ")}</p>` : ""}
+    <input id="pickQ" type="search" class="search" placeholder="חיפוש לפי שם או תגית" style="margin-top:12px">
+    <div id="pickList">${list("")}</div></div></div>`;
+  $layer.querySelector("#pickQ").addEventListener("input", e => { $layer.querySelector("#pickList").innerHTML = list(e.target.value.trim().toLowerCase()); });
+  $layer.onclick = ev => {
+    if (isClose(ev.target)) return closeSheet();
+    const p = ev.target.closest("[data-pick]"); if (!p) return;
+    const L = lessonById(p.dataset.pick); if (!L) return;
+    writeHw(uid, k, items => items.concat({id:newId(), lessonId:L.id, title:L.title, done:false, seen:false, assignedAt:Date.now()}));
+    closeSheet(); toast(`״${L.title}״ נוסף ל${dayLabel(k)}`);
+  };
+}
+
+function videoDuration(file){
+  return new Promise(res => { const v = document.createElement("video"); v.preload = "metadata";
+    v.onloadedmetadata = () => { URL.revokeObjectURL(v.src); res(isFinite(v.duration) ? v.duration : 0); };
+    v.onerror = () => res(0); v.src = URL.createObjectURL(file); });
+}
+async function uploadVideo(uid, k, id, file){
+  if (!file.type.startsWith("video/")) { toast("אפשר להעלות רק קובץ וידאו"); return; }
+  if (file.size > 100*1024*1024) { toast("הקובץ גדול מדי (עד 100MB)"); return; }
+  const dur = await videoDuration(file);
+  if (dur > 61) { toast(`הסרטון ארוך מדקה (${Math.round(dur)} שניות). קצרו אותו ונסו שוב.`); return; }
+  const ext = ((file.name.split(".").pop()||"mp4").toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,5)) || "mp4";
+  const path = `videos/${uid}/${id}-${Date.now()}.${ext}`;
+  const task = uploadBytesResumable(sRef(storage, path), file, {contentType:file.type});
+  S.uploads[id] = 0; S.sheetRedraw?.();
+  task.on("state_changed",
+    snap => { S.uploads[id] = Math.round(snap.bytesTransferred / snap.totalBytes * 100); S.sheetRedraw?.(); },
+    () => { delete S.uploads[id]; S.sheetRedraw?.(); toast("ההעלאה נכשלה. בדקו את החיבור ונסו שוב."); },
+    async () => {
+      try {
+        const url = await getDownloadURL(task.snapshot.ref);
+        const old = hwDay(uid,k).find(x => x.id===id);
+        await patchItem(uid, k, id, {video:{url, path, dur:Math.round(dur), at:Date.now()}, done:true, doneAt:old?.doneAt || Date.now(), seen:false, seenAt:null});
+        if (old?.video?.path) deleteObject(sRef(storage, old.video.path)).catch(()=>{});
+        toast("הסרטון הועלה");
+      } catch { toast("ההעלאה נכשלה. נסו שוב."); }
+      delete S.uploads[id]; S.sheetRedraw?.();
+    });
+}
+
+function openItem(uid, k, id){
+  const isT = S.profile.role === "trainer";
+  let openDetails = !isT;
+  const draw = () => {
+    const ae = document.activeElement; if ($layer.contains(ae) && ae.tagName==="TEXTAREA") return;
+    const det = $layer.querySelector("details"); if (det) openDetails = det.open;
+    const it = hwDay(uid,k).find(x => x.id===id); if (!it) { closeSheet(); return; }
+    const L = lessonById(it.lessonId), up = S.uploads[id], st = itemStatus(it,isT);
+    let actions;
+    if (!isT) actions = `<div class="row" style="margin-top:14px">
+        <button class="btn ${it.done?"ghost":""}" data-act="itDone">${it.done ? "ביטול סימון ביצוע" : "✓ סימון כבוצע"}</button>
+        <label class="btn ghost" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">🎬 ${it.video ? "החלפת סרטון" : "העלאת סרטון"}
+          <input type="file" accept="video/*" id="vidIn" hidden ${up!=null?"disabled":""}></label></div>
+        <small class="muted">סרטון של עד דקה מהאימון</small>
+        ${up!=null ? `<div style="margin-top:10px"><div class="progress"><i style="width:${up}%"></i></div><small class="muted">מעלה… ${up}%</small></div>` : ""}
+        ${it.seen || it.note ? `<div class="notebox">${it.seen ? "<b>👁 המאלף/ת ראו</b>" : "<b>הערה מהמאלף/ת</b>"}${it.note ? `<p style="margin:6px 0 0">${esc(it.note)}</p>` : ""}</div>` : ""}`;
+    else actions = `<div class="row" style="margin-top:12px">
+        ${it.done || it.video ? `<button class="btn ${it.seen?"ghost":""}" data-act="itSeen">${it.seen ? "ביטול ״ראיתי״" : "👁 סימון ״ראיתי״"}</button>` : ""}
+        <button class="btn ghost" data-act="itRemove">הסרה מהיומן</button></div>
+        <div class="field" style="margin:14px 0 8px"><label for="itNote">הערה ללקוח</label><textarea id="itNote" rows="3">${esc(it.note||"")}</textarea></div>
+        <button class="btn" data-act="itNote">שמירת הערה</button>`;
+    $layer.innerHTML = `<div class="scrim"><div class="sheet" role="dialog" aria-label="${esc(it.title)}">
+      <div class="spread"><h2>${esc(L?.title || it.title)}</h2><button type="button" class="x" data-act="close" aria-label="סגירה">✕</button></div>
+      <div class="row muted" style="margin:6px 0 12px;font-size:.9rem"><span>${esc(dayLabel(k))}</span>
+        <span class="hwchip ${st.cls}" style="padding:2px 8px">${st.icon} ${st.txt}</span>${it.doneAt ? `<span>בוצע ${ago(it.doneAt)}</span>` : ""}</div>
+      ${it.video ? `<video controls playsinline preload="metadata" src="${esc(it.video.url)}"></video>
+        <small class="muted">הועלה ${ago(it.video.at)}${it.video.dur ? ` · ${it.video.dur} שנ׳` : ""}</small>` : (isT ? `<p class="muted" style="margin:0">עוד לא הועלה סרטון</p>` : "")}
+      ${actions}
+      <details ${openDetails?"open":""} style="margin-top:16px"><summary><b>דף השיעור</b></summary>
+        ${L ? `<div class="chips" style="margin:8px 0">${tagChips(L.tags)}</div><div class="lessonbody">${md(L.body)}</div>` : `<p class="muted">דף המידע הזה כבר לא קיים בספרייה.</p>`}
+      </details></div></div>`;
+    $layer.querySelector("#vidIn")?.addEventListener("change", e => { const f = e.target.files[0]; if (f) uploadVideo(uid,k,id,f); });
+  };
+  S.sheetRedraw = draw; draw();
+  $layer.onclick = ev => {
+    if (isClose(ev.target)) return closeSheet();
+    const b = ev.target.closest("[data-act]"); if (!b) return;
+    const it = hwDay(uid,k).find(x => x.id===id); if (!it) return;
+    const a = b.dataset.act;
+    if (a==="itDone") patchItem(uid,k,id,{done:!it.done, doneAt: it.done ? null : Date.now()});
+    if (a==="itSeen") patchItem(uid,k,id,{seen:!it.seen, seenAt: it.seen ? null : Date.now()});
+    if (a==="itNote") { const v = $layer.querySelector("#itNote").value.trim(); $layer.querySelector("#itNote").blur(); patchItem(uid,k,id,{note:v}).then(() => toast("ההערה נשמרה")); }
+    if (a==="itRemove" && confirm("להסיר את השיעור מהיומן?")) { writeHw(uid,k,items => items.filter(x => x.id!==id)); closeSheet(); }
+  };
+}
+
+const trainerTabs = () => { const lib = S.view==="library" || S.view==="lesson";
+  return `<div class="tabs"><button data-act="tab" data-v="clients" aria-pressed="${!lib}">לקוחות</button><button data-act="tab" data-v="library" aria-pressed="${lib}">ספריית שיעורים</button></div>`; };
+const lessonList = (ls, showFolder) => ls.map(l => `<button class="lessonrow" data-act="lessonOpen" data-id="${esc(l.id)}"><b>${esc(l.title)}</b>${showFolder ? ` <small class="muted">· 📁 ${esc(S.folders.find(f=>f.id===l.folderId)?.name||"")}</small>` : ""}<span class="chips">${tagChips(l.tags)}</span></button>`).join("");
+function libResults(){
+  const q = S.libQ.trim().toLowerCase();
+  if (q) { const ls = S.lessons.filter(l => matches(l,q)); return ls.length ? lessonList(ls,true) : `<div class="empty">לא נמצאו דפי מידע</div>`; }
+  if (!S.folders.length) return `<div class="empty"><span class="big">📚</span>צרו תיקייה ראשונה, למשל ״גמילה מצרכים״ או ״הליכה ברצועה״.</div>`;
+  return `<div class="folders">${S.folders.map(f => { const n = S.lessons.filter(l => l.folderId===f.id).length;
+    return `<button class="folder" data-act="folderOpen" data-id="${esc(f.id)}"><span class="ico">📁</span><b>${esc(f.name)}</b><small class="muted">${n===1 ? "דף מידע אחד" : `${n} דפי מידע`}</small></button>`; }).join("")}</div>`;
+}
+function libraryView(){
+  const f = S.libFolder ? S.folders.find(x => x.id===S.libFolder) : null;
+  let body;
+  if (f) {
+    const ls = S.lessons.filter(l => l.folderId===f.id);
+    body = `<div class="panel"><div class="spread"><div class="row"><button class="btn ghost small" data-act="folderBack">כל התיקיות</button><h2>📁 ${esc(f.name)}</h2></div>
+      <div class="row"><button class="btn ghost small" data-act="folderRename">שינוי שם</button><button class="btn ghost small" data-act="folderDel">מחיקה</button></div></div>
+      <button class="btn" data-act="lessonNew" style="margin:14px 0 6px">＋ דף מידע חדש</button>
+      ${ls.length ? lessonList(ls,false) : `<div class="empty">התיקייה ריקה. הוסיפו את דף המידע הראשון.</div>`}</div>`;
+  } else {
+    body = `<div class="panel"><div class="spread" style="margin-bottom:12px"><h2>ספריית שיעורים</h2><button class="btn" data-act="folderNew">＋ תיקייה חדשה</button></div>
+      <input id="libSearch" type="search" class="search" placeholder="חיפוש לפי שם או תגית" value="${esc(S.libQ)}">
+      <div id="libResults" style="margin-top:14px">${libResults()}</div></div>`;
+  }
+  return `${topBar(`<button class="btn ghost small" data-act="edit">עריכת פרופיל</button>`)}${trainerTabs()}${body}`;
+}
+function lessonEditor(){
+  const isNew = S.editLesson==="new";
+  const l = isNew ? {folderId: S.libFolder || S.folders[0]?.id, tags:[]} : lessonById(S.editLesson);
+  if (!l) { S.view = "library"; return libraryView(); }
+  return `${topBar("")}${trainerTabs()}<form class="panel" id="lessonForm" data-id="${esc(S.editLesson)}">
+    <div class="spread" style="margin-bottom:14px"><h2>${isNew ? "דף מידע חדש" : "עריכת דף מידע"}</h2><button type="button" class="btn ghost small" data-act="lessonCancel">חזרה</button></div>
+    <div class="field"><label for="lTitle">שם דף המידע</label><input id="lTitle" required value="${esc(l.title)}"></div>
+    <div class="grid2">
+      <div class="field"><label for="lFolder">תיקייה</label><select id="lFolder" required>${S.folders.map(f => `<option value="${esc(f.id)}" ${f.id===l.folderId?"selected":""}>${esc(f.name)}</option>`).join("")}</select></div>
+      <div class="field"><label for="lTags">תגיות</label><input id="lTags" placeholder="מופרדות בפסיק: גור, צרכים, בית" value="${esc((l.tags||[]).join(", "))}"></div></div>
+    <div class="field"><label for="lBody">השיעור</label><textarea id="lBody" rows="14">${esc(l.body)}</textarea>
+      <small class="muted">שורה שמתחילה ב־# היא כותרת, שורה שמתחילה ב־- היא רשימה, ו־**טקסט** יוצא מודגש.</small></div>
+    <div class="row"><button class="btn" type="submit">שמירה</button>${isNew ? "" : `<button type="button" class="btn ghost" data-act="lessonDel" style="color:var(--bad)">מחיקת הדף</button>`}</div></form>`;
 }
 
 /* ---------- log sheet ---------- */
@@ -520,7 +792,7 @@ $app.addEventListener("click", ev => {
   if (a==="edit"){ S.view="edit"; S.form={role:S.profile.role}; render(); }
   if (a==="cancelEdit"){ S.view="home"; render(); }
   if (a==="log") openSheet(b.dataset.type);
-  if (a==="open"){ S.view="client"; S.sel=b.dataset.id; S.selDay=dayKey(Date.now()); render(); scrollTo(0,0); }
+  if (a==="open"){ S.view="client"; S.hwStart=null; S.sel=b.dataset.id; S.selDay=dayKey(Date.now()); render(); scrollTo(0,0); }
   if (a==="back"){ S.view="home"; S.sel=null; S.selDay=dayKey(Date.now()); render(); }
   if (a==="day"){ const n = shiftDay(S.selDay, +b.dataset.n); if (n<=dayKey(Date.now())) { S.selDay=n; render(); } }
   if (a==="authMode"){ S.authMode = b.dataset.v; render(); }
@@ -534,9 +806,37 @@ $app.addEventListener("click", ev => {
     sendPasswordResetEmail(auth, em).then(()=>toast("נשלח אימייל לאיפוס סיסמה"), e=>toast(AUTH_ERR[e.code]||"השליחה נכשלה")); }
   if (a==="copyCode"){ navigator.clipboard?.writeText(S.profile.code).then(()=>toast("הקוד הועתק"), ()=>toast(`הקוד: ${S.profile.code}`)); }
   if (a==="genCode"){ b.disabled = true; uniqueCode().then(code => S.db.doc(`profiles/${S.me}`).update({code})).then(()=>toast("הקוד נוצר"), ()=>{ b.disabled=false; toast("יצירת הקוד נכשלה. נסו שוב."); }); }
+  if (a==="tab"){ S.view = b.dataset.v==="library" ? "library" : "home"; S.libFolder=null; S.sel=null; render(); scrollTo(0,0); }
+  if (a==="folderOpen"){ S.libFolder=b.dataset.id; render(); }
+  if (a==="folderBack"){ S.libFolder=null; render(); }
+  if (a==="folderNew") promptSheet("תיקייה חדשה", "", name => S.db.doc(`trainers/${S.me}/folders/${newId()}`).set({name, createdAt:Date.now()}).catch(()=>toast("השמירה נכשלה. נסו שוב.")));
+  if (a==="folderRename"){ const f = S.folders.find(x=>x.id===S.libFolder); if (f) promptSheet("שינוי שם התיקייה", f.name, name => S.db.doc(`trainers/${S.me}/folders/${f.id}`).update({name}).catch(()=>toast("השמירה נכשלה. נסו שוב."))); }
+  if (a==="folderDel"){
+    if (S.lessons.some(l=>l.folderId===S.libFolder)) { toast("אפשר למחוק רק תיקייה ריקה. העבירו או מחקו קודם את דפי המידע שבה."); return; }
+    if (confirm("למחוק את התיקייה?")) { S.db.doc(`trainers/${S.me}/folders/${S.libFolder}`).delete(); S.libFolder=null; render(); } }
+  if (a==="lessonNew"){ S.view="lesson"; S.editLesson="new"; render(); scrollTo(0,0); }
+  if (a==="lessonOpen"){ S.view="lesson"; S.editLesson=b.dataset.id; render(); scrollTo(0,0); }
+  if (a==="lessonCancel"){ S.view="library"; render(); }
+  if (a==="lessonDel" && confirm("למחוק את דף המידע? שיעורים שכבר שובצו ללקוחות יישארו ביומן שלהם.")) {
+    S.db.doc(`trainers/${S.me}/lessons/${S.editLesson}`).delete(); S.view="library"; render(); }
+  if (a==="hwAdd") openPicker(S.sel, b.dataset.day);
+  if (a==="hwItem") openItem(b.dataset.uid, b.dataset.day, b.dataset.id);
+  if (a==="hwNav"){ S.hwStart = shiftDay(S.hwStart || dayKey(Date.now()), +b.dataset.n); render(); }
   if (a==="del" && confirm("למחוק את הרשומה?")) { const id=b.dataset.id; writeDay(S.me, b.dataset.day, cur => cur.filter(e=>e.id!==id)); }
 });
+$app.addEventListener("input", ev => {
+  if (ev.target.id==="libSearch"){ S.libQ = ev.target.value; const r = $app.querySelector("#libResults"); if (r) r.innerHTML = libResults(); }
+});
 $app.addEventListener("submit", async ev => {
+  if (ev.target.id==="lessonForm"){ ev.preventDefault();
+    const f = ev.target, title = f.querySelector("#lTitle").value.trim(); if (!title) return;
+    const id = S.editLesson==="new" ? newId() : S.editLesson, old = lessonById(id);
+    const tags = [...new Set(f.querySelector("#lTags").value.split(/[,،]/).map(t=>t.trim()).filter(Boolean))];
+    const data = {title, folderId:f.querySelector("#lFolder").value, tags, body:f.querySelector("#lBody").value, createdAt:old?.createdAt || Date.now(), updatedAt:Date.now()};
+    const btn = f.querySelector("button[type=submit]"); btn.disabled = true;
+    try { await S.db.doc(`trainers/${S.me}/lessons/${id}`).set(data); S.libFolder = data.folderId; S.view = "library"; render(); toast("דף המידע נשמר"); }
+    catch { toast("השמירה נכשלה. נסו שוב."); btn.disabled = false; }
+    return; }
   if (ev.target.id==="authForm"){ ev.preventDefault();
     const em = ev.target.querySelector("#email").value.trim(), pw = ev.target.querySelector("#password").value;
     const btn = ev.target.querySelector("button[type=submit]"); btn.disabled = true;
@@ -571,16 +871,16 @@ if (!firebaseConfig?.apiKey || firebaseConfig.apiKey.startsWith("YOUR_")) {
   $app.innerHTML = `${topBar("")}<div class="panel empty"><span class="big">🔧</span>חסרים פרטי Firebase. מלאו אותם בקובץ firebase-config.js.</div>`;
 } else {
   const app = initializeApp(firebaseConfig);
-  auth = getAuth(app); fs = getFirestore(app); S.db = DB;
+  auth = getAuth(app); fs = getFirestore(app); storage = getStorage(app); S.db = DB;
   getRedirectResult(auth).catch(e => toast(AUTH_ERR[e.code] || "ההתחברות עם Google נכשלה. נסו שוב."));
   onAuthStateChanged(auth, u => {
     unsubAll(); $layer.innerHTML = "";
     S.me = u ? u.uid : null; S.profile = u ? undefined : undefined;
-    S.view = "home"; S.sel = null; S.form = {}; S.clients = []; S.days = {}; S._authDrawn = null;
+    S.view = "home"; S.sel = null; S.form = {}; S.clients = []; S.days = {}; S.hw = {}; S.lessons = []; S.folders = []; S.sheetRedraw = null; S._authDrawn = null;
     render();
     if (u) startRole();
   });
-  setInterval(() => { if (S.me && !$layer.innerHTML && S.view!=="edit" && S.profile) render(); }, 60000);
+  setInterval(() => { if (S.me && !$layer.innerHTML && !["edit","lesson"].includes(S.view) && S.profile) render(); }, 60000);
 }
 </script>
 </body>

@@ -1,0 +1,17 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Training videos: the client uploads (video only, under 100MB);
+    // the client and their linked trainer can watch.
+    match /videos/{uid}/{file} {
+      allow read: if request.auth != null && (
+        request.auth.uid == uid ||
+        firestore.get(/databases/(default)/documents/profiles/$(uid)).data.trainerId == request.auth.uid
+      );
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.size < 100 * 1024 * 1024
+        && request.resource.contentType.matches('video/.*');
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

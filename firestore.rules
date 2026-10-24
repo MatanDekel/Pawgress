@@ -3,9 +3,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function signedIn() { return request.auth != null; }
+    function trainerOf(uid) {
+      return get(/databases/$(database)/documents/profiles/$(uid)).data.trainerId;
+    }
 
-    // Profiles: any signed-in user can read (trainer looks up clients, client sees trainer name);
-    // only the owner writes their own profile.
+    // Profiles: any signed-in user can read; only the owner writes their own.
     match /profiles/{uid} {
       allow read: if signedIn();
       allow write: if signedIn() && request.auth.uid == uid;
@@ -21,10 +23,20 @@ service cloud.firestore {
     // Daily logs: the dog owner writes; the owner and their linked trainer read.
     match /logs/{uid}/days/{day} {
       allow write: if signedIn() && request.auth.uid == uid;
-      allow read: if signedIn() && (
-        request.auth.uid == uid ||
-        get(/databases/$(database)/documents/profiles/$(uid)).data.trainerId == request.auth.uid
-      );
+      allow read: if signedIn() && (request.auth.uid == uid || trainerOf(uid) == request.auth.uid);
+    }
+
+    // Trainer's lesson library (folders + lessons): the trainer writes;
+    // the trainer and their linked clients read.
+    match /trainers/{tid}/{coll}/{id} {
+      allow write: if signedIn() && request.auth.uid == tid;
+      allow read: if signedIn() && (request.auth.uid == tid || trainerOf(request.auth.uid) == tid);
+    }
+
+    // Homework calendar: the client and their linked trainer both read and write
+    // (trainer assigns, marks seen, adds notes; client marks done, attaches videos).
+    match /homework/{uid}/days/{day} {
+      allow read, write: if signedIn() && (request.auth.uid == uid || trainerOf(uid) == request.auth.uid);
     }
   }
 }
