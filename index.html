@@ -216,6 +216,11 @@ function ago(t){ const m = Math.round((Date.now()-t)/60000);
   if (m<1) return "עכשיו"; if (m<60) return `לפני ${m} דק׳`;
   const h = Math.floor(m/60); if (h<24) return `לפני ${h} שע׳${m%60?` ו־${m%60} דק׳`:""}`;
   const d = Math.floor(h/24); return d===1 ? "לפני יום" : `לפני ${d} ימים`; }
+const saveErr = e => {
+  console.error("Pawgress save error:", e);
+  toast(e?.code==="permission-denied" ? "אין הרשאה לשמור. צריך לעדכן את הכללים של Firestore ב־Firebase."
+      : e?.code==="unavailable" ? "אין חיבור לאינטרנט. נסו שוב." : "השמירה נכשלה. נסו שוב.");
+};
 function toast(msg){ const el = document.createElement("div"); el.className="toast"; el.textContent=msg;
   document.body.appendChild(el); setTimeout(()=>el.remove(), 2600); }
 
@@ -236,7 +241,7 @@ function writeDay(uid, key, mutate){
     const cur = snap.exists ? (snap.data().entries||[]).slice() : [];
     const next = mutate(cur).sort((a,b)=>a.t-b.t);
     await ref.set({date:key, entries:next, updatedAt:Date.now()});
-  }).catch(e => toast(e?.code==="quota_exceeded" ? "האחסון מלא. מחקו רשומות ישנות." : "השמירה נכשלה. נסו שוב."));
+  }).catch(saveErr);
   return wq;
 }
 const newId = () => Math.random().toString(36).slice(2,10);
@@ -562,7 +567,7 @@ function writeHw(uid, key, mutate){
     const cur = snap.exists ? (snap.data().items||[]).map(i => ({...i})) : [];
     const trainerId = S.profile.role==="trainer" ? S.me : S.profile.trainerId;
     await ref.set({date:key, trainerId, items:mutate(cur), updatedAt:Date.now()});
-  }).catch(() => toast("השמירה נכשלה. נסו שוב."));
+  }).catch(saveErr);
   return hq;
 }
 const patchItem = (uid,key,id,patch) => writeHw(uid, key, items => items.map(i => i.id===id ? {...i, ...patch} : i));
@@ -817,9 +822,9 @@ $app.addEventListener("click", ev => {
   if (a==="toggleInactive"){ S.showInactive = !S.showInactive; render(); }
   if (a==="setInactive" && confirm("לסמן את הלקוח כלא פעיל? הוא יעבור לרשימת הלא פעילים, וכל הנתונים שלו יישמרו.")) {
     S.db.doc(`trainers/${S.me}/clientMeta/${b.dataset.id}`).set({inactive:true, since:Date.now()})
-      .then(() => { S.view="home"; S.sel=null; syncClientSubs(); render(); toast("הלקוח סומן כלא פעיל"); }, () => toast("השמירה נכשלה. נסו שוב.")); }
+      .then(() => { S.view="home"; S.sel=null; syncClientSubs(); render(); toast("הלקוח סומן כלא פעיל"); }, saveErr); }
   if (a==="setActive") S.db.doc(`trainers/${S.me}/clientMeta/${b.dataset.id}`).set({inactive:false, since:null})
-      .then(() => toast("הלקוח חזר לפעילים"), () => toast("השמירה נכשלה. נסו שוב."));
+      .then(() => toast("הלקוח חזר לפעילים"), saveErr);
   if (a==="back"){ S.view="home"; S.sel=null; syncClientSubs(); S.selDay=dayKey(Date.now()); render(); }
   if (a==="day"){ const n = shiftDay(S.selDay, +b.dataset.n); if (n<=dayKey(Date.now())) { S.selDay=n; render(); } }
   if (a==="authMode"){ S.authMode = b.dataset.v; render(); }
@@ -836,8 +841,8 @@ $app.addEventListener("click", ev => {
   if (a==="tab"){ S.view = b.dataset.v==="library" ? "library" : "home"; S.libFolder=null; S.sel=null; render(); scrollTo(0,0); }
   if (a==="folderOpen"){ S.libFolder=b.dataset.id; render(); }
   if (a==="folderBack"){ S.libFolder=null; render(); }
-  if (a==="folderNew") promptSheet("תיקייה חדשה", "", name => S.db.doc(`trainers/${S.me}/folders/${newId()}`).set({name, createdAt:Date.now()}).catch(()=>toast("השמירה נכשלה. נסו שוב.")));
-  if (a==="folderRename"){ const f = S.folders.find(x=>x.id===S.libFolder); if (f) promptSheet("שינוי שם התיקייה", f.name, name => S.db.doc(`trainers/${S.me}/folders/${f.id}`).update({name}).catch(()=>toast("השמירה נכשלה. נסו שוב."))); }
+  if (a==="folderNew") promptSheet("תיקייה חדשה", "", name => S.db.doc(`trainers/${S.me}/folders/${newId()}`).set({name, createdAt:Date.now()}).catch(saveErr));
+  if (a==="folderRename"){ const f = S.folders.find(x=>x.id===S.libFolder); if (f) promptSheet("שינוי שם התיקייה", f.name, name => S.db.doc(`trainers/${S.me}/folders/${f.id}`).update({name}).catch(saveErr)); }
   if (a==="folderDel"){
     if (S.lessons.some(l=>l.folderId===S.libFolder)) { toast("אפשר למחוק רק תיקייה ריקה. העבירו או מחקו קודם את דפי המידע שבה."); return; }
     if (confirm("למחוק את התיקייה?")) { S.db.doc(`trainers/${S.me}/folders/${S.libFolder}`).delete(); S.libFolder=null; render(); } }
@@ -862,7 +867,7 @@ $app.addEventListener("submit", async ev => {
     const data = {title, folderId:f.querySelector("#lFolder").value, tags, body:f.querySelector("#lBody").value, createdAt:old?.createdAt || Date.now(), updatedAt:Date.now()};
     const btn = f.querySelector("button[type=submit]"); btn.disabled = true;
     try { await S.db.doc(`trainers/${S.me}/lessons/${id}`).set(data); S.libFolder = data.folderId; S.view = "library"; render(); toast("דף המידע נשמר"); }
-    catch { toast("השמירה נכשלה. נסו שוב."); btn.disabled = false; }
+    catch (e) { saveErr(e); btn.disabled = false; }
     return; }
   if (ev.target.id==="authForm"){ ev.preventDefault();
     const em = ev.target.querySelector("#email").value.trim(), pw = ev.target.querySelector("#password").value;
