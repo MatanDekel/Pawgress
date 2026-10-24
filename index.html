@@ -199,7 +199,7 @@ const TYPES = {
 };
 const PLACES = {out:"בחוץ", pad:"על הפד", home:"בבית (תאונה)"};
 const S = {db:null,user:null,me:null,profile:undefined,trainers:[],clients:[],days:{},names:{},
-  view:"home",sel:null,selDay:null,form:{},subs:{},clientSubs:{}};
+  view:"home",sel:null,selDay:null,form:{},subs:{},clientSubs:{},meta:{},showInactive:false};
 const $app = document.getElementById("app"), $layer = document.getElementById("layer");
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -284,8 +284,15 @@ function startRole(){
     if (sig(S.profile) !== prev) wireRole(); render();
   }, ()=>{}));
 }
+/* Live data is kept only for active clients (plus the one currently open), to save reads. */
+const isInactive = id => !!S.meta[id]?.inactive;
+function syncClientSubs(){
+  const want = new Set(S.clients.filter(c => !isInactive(c.id) || c.id===S.sel).map(c => c.id));
+  for (const id in S.clientSubs) if (!want.has(id)) { S.clientSubs[id](); delete S.clientSubs[id]; }
+  for (const id of want) if (!S.clientSubs[id]) { const u1 = watchDays(id, 14), u2 = watchHw(id); S.clientSubs[id] = () => { u1(); u2(); }; }
+}
 function wireRole(){
-  for (const k of ["days","trainers","clients","folders","lessons","hw"]) { S.subs[k]?.(); delete S.subs[k]; }
+  for (const k of ["days","trainers","clients","folders","lessons","hw","meta"]) { S.subs[k]?.(); delete S.subs[k]; }
   for (const k in S.clientSubs) S.clientSubs[k](); S.clientSubs = {};
   sub("trainers", () => S.db.collection("profiles").where("role","==","trainer").onSnapshot(s => {
     S.trainers = s.docs.map(d => ({id:d.id, ...d.data()})); render(); }, ()=>{}));
@@ -301,12 +308,12 @@ function wireRole(){
     sub("lessons", () => watchLessons(S.me));
     sub("folders", () => S.db.collection(`trainers/${S.me}/folders`).onSnapshot(s => {
       S.folders = s.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)); render(); }, ()=>{}));
+    sub("meta", () => S.db.collection(`trainers/${S.me}/clientMeta`).onSnapshot(s => {
+      S.meta = Object.fromEntries(s.docs.map(d => [d.id, d.data()])); syncClientSubs(); render(); }, ()=>{}));
   }
   if (S.profile?.role === "trainer") sub("clients", () => S.db.collection("profiles").where("trainerId","==",S.me).onSnapshot(s => {
     S.clients = s.docs.map(d => ({id:d.id, ...d.data()}));
-    const ids = new Set(S.clients.map(c=>c.id));
-    for (const id in S.clientSubs) if (!ids.has(id)) { S.clientSubs[id](); delete S.clientSubs[id]; }
-    for (const c of S.clients) if (!S.clientSubs[c.id] && Object.keys(S.clientSubs).length < 200) { const u1 = watchDays(c.id, 14), u2 = watchHw(c.id); S.clientSubs[c.id] = () => { u1(); u2(); }; }
+    syncClientSubs();
     resolveNames(S.clients.map(c=>c.id)); render();
   }, ()=>{}));
 }
@@ -447,7 +454,8 @@ function clientHome(){
 
 function trainerHome(){
   const p = S.profile;
-  const rows = S.clients.map(c => {
+  const inactive = S.clients.filter(c => isInactive(c.id));
+  const rows = S.clients.filter(c => !isInactive(c.id)).map(c => {
     const all = entriesOf(c.id), last = all[0], lastPee = all.find(e=>e.type==="pee");
     const today = summary(dayEntries(c.id, dayKey(Date.now())));
     return {c, last, lastPee, today};
@@ -464,12 +472,19 @@ function trainerHome(){
         ${today.acc?`<span class="chip bad">${today.acc} תאונות</span>`:""}${last?`<span class="chip">${esc(TYPES[last.type]?.label)} ${hm(last.t)}</span>`:""}</span></span>
     </button>`; }).join("");
   return `${topBar(`<button class="btn ghost small" data-act="edit">עריכת פרופיל</button>`)}${trainerTabs()}
-  <div class="panel"><div class="spread"><div><h2>${esc(p.businessName)}</h2><span class="muted">${S.clients.length} לקוחות · מתעדכן בזמן אמת</span></div>
+  <div class="panel"><div class="spread"><div><h2>${esc(p.businessName)}</h2><span class="muted">${rows.length===1 ? "לקוח פעיל אחד" : `${rows.length} לקוחות פעילים`}${inactive.length ? ` · ${inactive.length===1 ? "אחד לא פעיל" : `${inactive.length} לא פעילים`}` : ""} · מתעדכן בזמן אמת</span></div>
     ${p.code ? `<div style="text-align:center"><small class="muted" style="display:block">הקוד שלך ללקוחות</small>
       <button class="btn ghost" data-act="copyCode" dir="ltr" style="font-family:'Secular One',Rubik,sans-serif;font-size:1.5rem;letter-spacing:.25em;padding:6px 16px" aria-label="העתקת הקוד">${esc(p.code)}</button>
       <small class="muted" style="display:block">לחיצה מעתיקה</small></div>`
     : `<button class="btn" data-act="genCode">יצירת קוד ללקוחות</button>`}</div></div>
-  ${cards ? `<div class="clients">${cards}</div>` : `<div class="panel empty"><span class="big">🦴</span>עוד אין לקוחות. כשבעלי כלב יירשמו ויבחרו בך, הם יופיעו כאן.</div>`}`;
+  ${cards ? `<div class="clients">${cards}</div>` : `<div class="panel empty"><span class="big">🦴</span>${inactive.length ? "אין כרגע לקוחות פעילים." : "עוד אין לקוחות. כשבעלי כלב יירשמו ויבחרו בך, הם יופיעו כאן."}</div>`}
+  ${inactive.length ? `<div class="panel" style="margin-top:16px">
+    <button class="x" data-act="toggleInactive" aria-expanded="${S.showInactive}" style="width:100%;text-align:start;padding:2px 0;color:var(--ink)">
+      <span class="spread"><b>לקוחות לא פעילים (${inactive.length})</b><span class="muted">${S.showInactive ? "הסתרה" : "הצגה"}</span></span></button>
+    ${S.showInactive ? `<div class="clients" style="margin-top:12px">${inactive.map(c => `<button class="client" data-act="open" data-id="${esc(c.id)}" style="opacity:.75">
+      <span class="badge">🐕</span><span class="main"><b>${esc(c.dogName||"כלב")}</b>${S.names[c.id] ? ` <span class="muted">· ${esc(S.names[c.id])}</span>` : ""}
+      <span class="muted" style="display:block;font-size:.9rem">לא פעיל מאז ${esc(shortDate(dayKey(S.meta[c.id].since||Date.now())))}</span></span></button>`).join("")}</div>` : ""}
+  </div>` : ""}`;
 }
 
 function clientDetail(){
@@ -477,8 +492,12 @@ function clientDetail(){
   const k = S.selDay, list = dayEntries(c.id,k), owner = S.names[c.id];
   const week = []; for (let i=0;i<7;i++) week.push(...dayEntries(c.id, shiftDay(dayKey(Date.now()),-i)));
   const ws = summary(week);
+  const off = isInactive(c.id);
   return `${topBar(`<button class="btn ghost small" data-act="back">כל הלקוחות</button>`)}
-  <div class="panel"><div class="dog"><div class="badge">🐕</div><div><h2>${esc(c.dogName)}</h2>
+  ${off ? `<div class="panel" style="border-color:var(--warn)"><div class="spread"><span>הלקוח מסומן כלא פעיל מאז ${esc(shortDate(dayKey(S.meta[c.id].since||Date.now())))}.</span>
+    <button class="btn small" data-act="setActive" data-id="${esc(c.id)}">החזרה לפעילים</button></div></div>` : ""}
+  <div class="panel"><div class="dog"><div class="badge">🐕</div><div style="flex:1"><div class="spread"><h2>${esc(c.dogName)}</h2>
+    ${off ? "" : `<button class="btn ghost small" data-act="setInactive" data-id="${esc(c.id)}">סימון כלא פעיל</button>`}</div>
     <div class="facts">${owner?`<span>${esc(owner)}</span>`:""}${c.breed?`<span>${esc(c.breed)}</span>`:""}${c.age?`<span>${esc(c.age)}</span>`:""}${c.weight?`<span>${esc(c.weight)} ק״ג</span>`:""}</div></div></div>
     ${c.goals?`<p style="margin:12px 0 0"><span class="muted">מטרות: </span>${esc(c.goals)}</p>`:""}</div>
   <div class="panel">${hwCalendar(c.id,true)}</div>
@@ -794,8 +813,14 @@ $app.addEventListener("click", ev => {
   if (a==="edit"){ S.view="edit"; S.form={role:S.profile.role}; render(); }
   if (a==="cancelEdit"){ S.view="home"; render(); }
   if (a==="log") openSheet(b.dataset.type);
-  if (a==="open"){ S.view="client"; S.hwStart=null; S.sel=b.dataset.id; S.selDay=dayKey(Date.now()); render(); scrollTo(0,0); }
-  if (a==="back"){ S.view="home"; S.sel=null; S.selDay=dayKey(Date.now()); render(); }
+  if (a==="open"){ S.view="client"; S.hwStart=null; S.sel=b.dataset.id; S.selDay=dayKey(Date.now()); syncClientSubs(); render(); scrollTo(0,0); }
+  if (a==="toggleInactive"){ S.showInactive = !S.showInactive; render(); }
+  if (a==="setInactive" && confirm("לסמן את הלקוח כלא פעיל? הוא יעבור לרשימת הלא פעילים, וכל הנתונים שלו יישמרו.")) {
+    S.db.doc(`trainers/${S.me}/clientMeta/${b.dataset.id}`).set({inactive:true, since:Date.now()})
+      .then(() => { S.view="home"; S.sel=null; syncClientSubs(); render(); toast("הלקוח סומן כלא פעיל"); }, () => toast("השמירה נכשלה. נסו שוב.")); }
+  if (a==="setActive") S.db.doc(`trainers/${S.me}/clientMeta/${b.dataset.id}`).set({inactive:false, since:null})
+      .then(() => toast("הלקוח חזר לפעילים"), () => toast("השמירה נכשלה. נסו שוב."));
+  if (a==="back"){ S.view="home"; S.sel=null; syncClientSubs(); S.selDay=dayKey(Date.now()); render(); }
   if (a==="day"){ const n = shiftDay(S.selDay, +b.dataset.n); if (n<=dayKey(Date.now())) { S.selDay=n; render(); } }
   if (a==="authMode"){ S.authMode = b.dataset.v; render(); }
   if (a==="logout"){ signOut(auth); }
@@ -878,7 +903,7 @@ if (!firebaseConfig?.apiKey || firebaseConfig.apiKey.startsWith("YOUR_")) {
   onAuthStateChanged(auth, u => {
     unsubAll(); $layer.innerHTML = "";
     S.me = u ? u.uid : null; S.profile = u ? undefined : undefined;
-    S.view = "home"; S.sel = null; S.form = {}; S.clients = []; S.days = {}; S.hw = {}; S.lessons = []; S.folders = []; S.sheetRedraw = null; S._authDrawn = null;
+    S.view = "home"; S.sel = null; S.form = {}; S.clients = []; S.days = {}; S.hw = {}; S.meta = {}; S.showInactive = false; S.lessons = []; S.folders = []; S.sheetRedraw = null; S._authDrawn = null;
     render();
     if (u) startRole();
   });
